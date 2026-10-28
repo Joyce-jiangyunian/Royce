@@ -10716,38 +10716,34 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 }
 </style>
 <style>
-/* 第三方美化开屏加载页（2026-10-28）：进度条 + 品牌化开屏，白屏等待时间可视化 */
-.splash{background:linear-gradient(160deg,#fff7fa 0%,#ffeef5 55%,#fde9f2 100%)!important}
+/* 第三方美化开屏（2026-10-28）：白底黑字·Informal Roman 字标·真实进度条 */
+.splash{background:#fff!important}
 [data-theme="dark"] .splash{background:radial-gradient(130% 42% at 50% 0%, var(--sp-glow) 0%, transparent 72%), var(--card-bg)!important}
-.ml-wrap{width:100%;margin:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px 24px;pointer-events:none}
-.ml-badge{width:84px;height:84px;border-radius:28px;background:linear-gradient(160deg,#ff9ec4,#f76b9d);box-shadow:0 12px 32px rgba(247,107,157,.35);display:flex;align-items:center;justify-content:center;animation:mlBeat 1.6s ease-in-out infinite}
-.ml-badge svg{width:44px;height:44px}
-@keyframes mlBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-.ml-name{font-size:26px;font-weight:900;letter-spacing:3px;color:#2b2b2b}
-.ml-sub{font-size:13px;color:#9a7083;font-weight:600}
-.ml-bar{width:min(220px,62vw);height:8px;border-radius:999px;background:rgba(247,107,157,.18);overflow:hidden}
-.ml-fill{height:100%;width:3%;border-radius:999px;background:linear-gradient(90deg,#ff9ec4,#f76b9d);transition:width .35s ease}
-.ml-pct{font-size:12px;color:#b58ba0;font-weight:700;letter-spacing:1px}
+.ml-wrap{width:100%;margin:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:30px 24px;pointer-events:none}
+.ml-name{font-family:'Informal Roman','Times New Roman',Georgia,serif;font-size:58px;font-weight:400;letter-spacing:2px;color:#111;line-height:1.1}
+.ml-sub{font-size:14px;color:#3a3a3a;font-weight:500}
+.ml-bar{width:min(260px,70vw);height:5px;border-radius:999px;background:#eee;overflow:hidden}
+.ml-fill{height:100%;width:0%;border-radius:999px;background:#111;transition:width .3s ease}
+.ml-pct{font-size:12px;color:#555;font-weight:600;letter-spacing:1px;font-variant-numeric:tabular-nums}
 .ml-dots{display:flex;gap:6px;height:8px}
-.ml-dots i{width:6px;height:6px;border-radius:50%;background:#f76b9d;opacity:.35;animation:mlDot 1.2s ease-in-out infinite}
+.ml-dots i{width:6px;height:6px;border-radius:50%;background:#111;opacity:.2;animation:mlDot 1.2s ease-in-out infinite}
 .ml-dots i:nth-child(2){animation-delay:.2s}
 .ml-dots i:nth-child(3){animation-delay:.4s}
-@keyframes mlDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+@keyframes mlDot{0%,100%{opacity:.15;transform:translateY(0)}50%{opacity:.8;transform:translateY(-3px)}}
 [data-theme="dark"] .ml-name{color:#f2f2f2}
-[data-theme="dark"] .ml-sub{color:#9a7c8a}
-@media (prefers-reduced-motion:reduce){.ml-badge,.ml-dots i{animation:none}}
+[data-theme="dark"] .ml-sub{color:#bbb}
+@media (prefers-reduced-motion:reduce){.ml-dots i{animation:none}}
 </style>
 </head>
 <body>
   <!-- 开屏加载动画 -->
-  <div class="splash" id="splash" style="background:linear-gradient(160deg,#fff7fa 0%,#ffeef5 55%,#fde9f2 100%);">
+  <div class="splash" id="splash" style="background:#fff;">
     <div class="splash-box" id="splash-box">
       <div class="ml-wrap">
-        <div class="ml-badge"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7.5-4.9-10-9.2C.2 8 2.3 4.5 5.8 4.5c2 0 3.4 1.1 4.2 2.3l2 3 2-3c.8-1.2 2.2-2.3 4.2-2.3 3.5 0 5.6 3.5 3.8 7.3C19.5 16.1 12 21 12 21z"/></svg></div>
         <div class="ml-name">Mochi</div>
         <div class="ml-sub">正在准备你的字卡…</div>
         <div class="ml-bar"><div class="ml-fill" id="ml-fill"></div></div>
-        <div class="ml-pct" id="ml-pct">3%</div>
+        <div class="ml-pct" id="ml-pct">0%</div>
         <div class="ml-dots"><i></i><i></i><i></i></div>
       </div>
     </div>
@@ -10771,11 +10767,9 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
         var files = (window.__mochiJsFiles || []).length || 0;
         var loaded = (window.__mochiLoaded || []).length;
         var errs = (window.__mochiErrLoaded || []).length;
-        p = files > 0 ? Math.round((loaded + errs) / files * 92) : 0;
+        p = files > 0 ? Math.round((loaded + errs) / files * 100) : 0; // 真实比例：已加载/总数，不设人为上限
       } catch (e) { p = 0; }
-      if (window.__mochiDataReady) { p = 100; }
-      else if (!p || p > 92) p = 92;
-      if (p < 3) p = 3;
+      if (window.__mochiDataReady && p < 100) p = 100; // 数据就绪后补满（通常此时脚本已全部加载完）
       fill.style.width = p + '%';
       pct.textContent = p + '%';
       if (p >= 100) { stop(); return; } // 就绪补满后停止
