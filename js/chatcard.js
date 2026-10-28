@@ -3543,6 +3543,74 @@ if (cur === type && !document.getElementById('page-custom-cards').hidden) { try 
 return added > 0;
 } catch (e) { return false; }
 };
+
+window.ccAppendMediaCards = function (type, group, cards, scope, _retry) {
+try {
+if (type !== 'sticker' && type !== 'image') return false;
+const arr = (Array.isArray(cards) ? cards : [cards]).filter(c => typeof c === 'string' && c && c.indexOf('|||') < 0);
+if (!arr.length || !group) return false;
+const isPub = scope === 'public';
+const authorized = _retry === 'asked';
+const retry = authorized ? 0 : (_retry || 0);
+const again = function (n) { setTimeout(function () { try { window.ccAppendMediaCards(type, group, cards, scope, n); } catch (e0) {} }, 1200 * n); };
+const ccHold = function (st, k, full) {
+if (authorized) return false;
+if (st.get(k) !== null && !window.xyBigWriteHold(st, k)) return false;
+if (st.get(k) === null) { try { if (st.requestBigKey) st.requestBigKey(k); } catch (e5) {} }
+let asked = 'unknown';
+try { if (retry < 4 && window.idbEnsureBigKey) asked = window.idbEnsureBigKey(full); } catch (e3) { asked = 'unknown'; }
+Promise.resolve(asked).then(function (state) {
+if (state === 'ok' || state === 'absent') { try { window.ccAppendMediaCards(type, group, cards, scope, 'asked'); } catch (e4) {} return; }
+if (retry < 4) again(retry + 1);
+}, function () { if (retry < 4) again(retry + 1); });
+return true;
+};
+if (isPub) {
+if (ccHold(pubStore(), PUB_KEY, PUB_PREFIX + ':' + PUB_KEY)) return false;
+const g = buildGroupsFrom(pubStore().get(PUB_KEY));
+if (!g[type]) g[type] = [];
+let grp = g[type].find(p => p[0] === group);
+if (!grp) { grp = [group, []]; g[type].push(grp); }
+let added = 0;
+arr.forEach(c => { if (grp[1].indexOf(c) < 0) { grp[1].push(c); added++; } });
+if (added) {
+try { pubStore().set(PUB_KEY, JSON.stringify(g)); } catch (e) {}
+pubInvalidate();
+libCounts.pub = -1; libCounts.pubFun = -1;
+if (cur === type && !document.getElementById('page-custom-cards').hidden) { try { render(); } catch (e) {} }
+}
+return added > 0;
+}
+if (groups) {
+if (!groups[type]) groups[type] = [];
+let g = groups[type].find(p => p[0] === group);
+if (!g) { g = [group, []]; groups[type].push(g); }
+let added = 0;
+arr.forEach(c => { if (g[1].indexOf(c) < 0) { g[1].push(c); added++; } });
+if (added) {
+scheduleSave();
+if (cur === type && !document.getElementById('page-custom-cards').hidden) { try { render(); } catch (e) {} }
+}
+return added > 0;
+}
+if (ccHold(store, 'cc-groups', window.activePrefix() + ':cc-groups')) return false;
+const g0 = buildGroupsFrom(store.get('cc-groups'));
+if (!g0[type]) g0[type] = [];
+let grp0 = g0[type].find(p => p[0] === group);
+if (!grp0) { grp0 = [group, []]; g0[type].push(grp0); }
+let added0 = 0;
+arr.forEach(c => { if (grp0[1].indexOf(c) < 0) { grp0[1].push(c); added0++; } });
+if (added0) {
+const j0 = JSON.stringify(g0);
+try { store.set('cc-groups', j0); } catch (e2) {}
+if (j0.length > 200 * 1024) ccEnsureDurable(0, j0);
+pubInvalidate();
+libCounts.own = -1; libCounts.fun = -1;
+refreshLibCounts(false);
+}
+return added0 > 0;
+} catch (e) { return false; }
+};
 function buildGroupsFrom(raw) {
 try {
 const g = JSON.parse(raw || 'null');

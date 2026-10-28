@@ -15226,6 +15226,11 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
         <button class="emoji-tool" id="mye-add-link">链接导入</button>
         <div style="font-size:11px;line-height:1.6;color:var(--muted);flex:1 0 100%;margin:2px 0 0" id="myemoji-add-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
       </div>
+      <!-- 第三方二改：公用表情包工具行（面板内直接上传，免跑去字卡库） -->
+      <div class="emoji-tools" id="pub-sticker-tools" hidden>
+        <button class="emoji-tool" id="pub-add-sticker">上传表情</button>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);flex:1 0 100%;margin:2px 0 0">直接上传到公用表情包：选中分组存入该分组，未选则存入「表情包」分组；与字卡库·公用字卡同库，全桌面联系人均可使用</div>
+      </div>
       <!-- 顶部分组切换栏（全部 / 各分组） -->
       <div class="emoji-groups" id="emoji-groups"></div>
       <div class="poke-card-scroll" id="emoji-list">
