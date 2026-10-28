@@ -29,7 +29,7 @@
    目的：缓解 iPhone 主线程长期满载导致页面完全无响应（冷启动后几乎点不动）。
    手段：1) 所有 setInterval 间隔下限提升到 1000ms（<1s 的高频常驻轮询被节流）；
         2) 页面切到后台/锁屏时，定时器回调立即返回，不再占用主线程；
-        3) 开屏等待期间（封面页）同样暂停功能定时器，让首屏更顺滑。
+        
    说明：保留原作者署名（小红书@言序 1842523578），仅作性能优化，不改功能。 */
 (function () {
   try {
@@ -45,7 +45,6 @@
         var myId = nextId++;
         var real = _si(function () {
           if (document.hidden) return;
-          try { var _sp = document.getElementById('splash'); if (_sp && !_sp.classList.contains('hide')) return; } catch (eS) {}
           try { fn.apply(this, arguments); } catch (e) {}
         }, d);
         reg[myId] = real;
@@ -10715,30 +10714,27 @@ width: 100%; margin-top: 8px; padding: 8px; background: none; border: none;
 font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: manipulation;
 }
 </style>
-<style>
-.entry-cover-wrap{width:100%;margin:auto 0;display:flex;align-items:center;justify-content:center;padding:24px 18px 0}
-.entry-cover-img{width:min(88vw,420px);max-height:70vh;object-fit:contain;border-radius:22px;box-shadow:0 14px 44px rgba(0,0,0,.22);display:block;background:var(--card-bg)}
-.entry-btn-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;padding:22px 18px calc(22px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)))}
-.entry-go-btn{width:min(260px,80vw);text-align:center;padding:15px 0;border-radius:999px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);font-size:15px;font-weight:800;letter-spacing:2px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.16);user-select:none;-webkit-user-select:none}
-.entry-go-btn:active{opacity:.75;transform:scale(.97)}
-.entry-go-btn.is-busy{opacity:.4;pointer-events:none}
-.entry-go-loading{font-size:12.5px;color:var(--muted,#888);font-weight:600}
-.entry-go-loading[hidden]{display:none}
-.splash{justify-content:space-between}
-</style>
+
 </head>
 <body>
+<script>
+/* 第三方修复（2026-10-28）：立即注销全部 Service Worker 并清空站点缓存。 */
+/* 根因：旧版 sw.js 带预缓存，被覆盖后仍会拦截请求把旧网页（含开屏问卷/须知）拉回来， */
+/* 造成「新网页和旧网页来回闪退」。此段在页面启动第一步执行，一次性清除，之后每次纯网络加载。 */
+try {
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    navigator.serviceWorker.getRegistrations().then(function (rs) {
+      rs.forEach(function (r) { r.unregister().catch(function () {}); });
+    }).catch(function () {});
+  }
+  if (window.caches && caches.keys) {
+    caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k).catch(function () {}); }); }).catch(function () {});
+  }
+} catch (e) {}
+</script>
   <!-- 开屏加载动画 -->
-  <div class="splash" id="splash">
-    <div class="splash-box" id="splash-box">
-      <div class="entry-cover-wrap">
-        <img class="entry-cover-img" src="./entry.png" alt="Mochi">
-      </div>
-      <div class="entry-btn-wrap">
-        <div class="entry-go-btn" id="mochi-go">点击进入</div>
-        <div class="entry-go-loading" id="mochi-go-loading" hidden>数据加载中，请稍候…</div>
-      </div>
-    </div>
+  <div class="splash" id="splash" style="background:var(--page-bg,#e9e9e9);">
+    <div class="splash-box" id="splash-box"></div>
   </div>
   <div class="splash-ver" id="splash-ver" data-build-ts="1793114203061" data-version="v8.68" style="display:none"></div>
   <div class="phone">
@@ -17600,7 +17596,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
   // v3.5.123：readonly 起手（防 Chrome 密码弹条破坏表单签名）——这里立即解除，
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
-window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
+window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
 (function () { try {
 (function () {
 try { window.__jsErrors = window.__jsErrors || []; } catch (e0) {}
@@ -21816,6 +21812,7 @@ if (t > 0) { baseTs = t; baseGot = true; }
 let lastCheck = 0;
 let failCount = 0;
 function checkVersion() {
+return; /* 第三方停改版（2026-10-28）：停止线上版本轮询与自动升级/重载，根治「新网页↔旧网页来回闪退刷新循环」 */
 if (document.visibilityState !== 'visible') return;
 const now = Date.now();
 const interval = failCount > 0 ? 5000 : 15000;
