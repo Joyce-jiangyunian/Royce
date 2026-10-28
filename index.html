@@ -20600,9 +20600,14 @@ localStorage.setItem(SD_ERR_KEY, JSON.stringify(arr));
 } catch (e1) {}
 }
 let _sdLastBad = '', _sdPend = null;
+// perf-fix: user-interaction quiet tracker — screen diagnostic must never run during scrolls/taps
+var _sdQuietUntil = 0;
+function _sdTouch() { _sdQuietUntil = Date.now() + 2500; }
+try { ['scroll','touchmove','pointermove','wheel','click'].forEach(function (ev) { document.addEventListener(ev, _sdTouch, { passive: true, capture: true }); }); } catch (eQuiet) {}
 function sdTick() {
 try {
 if (document.visibilityState !== 'visible') return;
+if (Date.now() < _sdQuietUntil) return; // interaction burst — defer diagnostic, no forced layout during browsing
 if (!window.__collectScreenDiag) return;
 try {
 var _splash = document.getElementById('splash');
@@ -20624,9 +20629,9 @@ sdArchive(r, 'auto');
 _sdPend = { sig: bad, names: badNames.join('、'), snap: sdSnapOf(r, 'auto') };
 } catch (e2) {}
 }
-setInterval(sdTick, 5000);
+setInterval(sdTick, 60000); // perf-fix: 5s -> 60s (diagnostic poll; quiet-gated above)
 let _sdEdgeT = null;
-function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 1200); }
+function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 3000); } // perf-fix: 3s coalesce (iOS URL-bar resize fires during scroll)
 try { window.addEventListener('resize', sdEdge); } catch (e3) {}
 try { if (window.visualViewport) window.visualViewport.addEventListener('resize', sdEdge); } catch (e4) {}
 try { window.addEventListener('orientationchange', sdEdge); } catch (e5) {}
