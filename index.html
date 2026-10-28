@@ -24,6 +24,42 @@
      脚本只认 dark、系统深色的 auto 用户会先白闪再由 personalize.js 纠正（FOUC）。
      另：旧版本残留的 data-theme 属性在此强制清掉，保证「选浅色」真回浅色。 -->
 <script>try{var _tm=localStorage.getItem('xy-home-v2:theme-mode');if(_tm==='dark'||(_tm!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}</script>
+<script>
+/* === Mochi 性能优化补丁（2026-10-28 第三方优化版） ===
+   目的：缓解 iPhone 主线程长期满载导致页面完全无响应（冷启动后几乎点不动）。
+   手段：1) 所有 setInterval 间隔下限提升到 1000ms（<1s 的高频常驻轮询被节流）；
+        2) 页面切到后台/锁屏时，定时器回调立即返回，不再占用主线程。
+   说明：保留原作者署名（小红书@言序 1842523578），仅作性能优化，不改功能。 */
+(function () {
+  try {
+    var MIN_MS = 1000;
+    var _si = window.setInterval.bind(window);
+    var _ci = window.clearInterval.bind(window);
+    var reg = Object.create(null), nextId = 1;
+    window.setInterval = function (fn, ms) {
+      try {
+        if (typeof fn !== 'function') return _si(fn, ms);
+        var d = parseInt(ms, 10); if (isNaN(d) || d < 0) d = 0;
+        if (d > 0 && d < MIN_MS) d = MIN_MS;
+        var myId = nextId++;
+        var real = _si(function () {
+          if (document.hidden) return;
+          try { fn.apply(this, arguments); } catch (e) {}
+        }, d);
+        reg[myId] = real;
+        return myId;
+      } catch (e) { return _si(fn, ms); }
+    };
+    window.clearInterval = function (id) {
+      try {
+        var real = reg[id];
+        if (real !== undefined) { _ci(real); delete reg[id]; return; }
+        _ci(id);
+      } catch (e) { _ci(id); }
+    };
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
