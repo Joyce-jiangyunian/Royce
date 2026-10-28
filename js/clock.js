@@ -494,6 +494,21 @@ readyForced = true;
 updateEnterState();
 }
 }, 20000);
+/* === 第三方优化（2026-10-28）：跳过开屏公告/须知/问卷/必读，数据就绪即自动进站 === */
+  var autoDone = false;
+  function autoEnter() {
+    if (autoDone) return;
+    autoDone = true;
+    try {
+      if (!splash.classList.contains('hide')) finishEnter();
+    } catch (e) { try { hide(); } catch (e2) {} }
+  }
+  if (ready()) autoEnter();
+  else (function wait(n) {
+    if (ready() || n >= 40) { autoEnter(); return; }
+    setTimeout(function () { wait(n + 1); }, 250);
+  })(0);
+  document.addEventListener('mochi-restore-done', function () { autoEnter(); });
 })();
 function renderSplashSections(container, sections, opt) {
 if (!container || !Array.isArray(sections)) return;
