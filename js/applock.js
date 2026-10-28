@@ -114,12 +114,14 @@ MASK.id = 'applock-mask';
 MASK.className = 'applock-mask';   // CSS 全用 .applock-mask 类选择器，id 仅供脚本/测试定位
 MASK.hidden = true;
 MASK.addEventListener('click', onMaskClick);
+MASK.addEventListener('touchend', function (e) { try { _alTapAt = Date.now(); handleApplockTap(e.target); } catch (eT) {} }, { passive: true }); // third-party fix: direct touch channel (iOS Safari click synthesis loss = keys dead after wrong pin)
 document.body.appendChild(MASK);
 }
 return MASK;
 }
 let cur = null;   // 当前面板配置
 let buf = '';     // pad 输入缓冲
+var _alTapAt = 0; // 第三方修复：触摸直通通道的时间戳（iOS 点击合成丢失后键盘仍可用）
 function render() {
 const m = maskEl();
 const o = cur;
@@ -225,7 +227,10 @@ render();
 maskEl().hidden = false;
 }
 function onMaskClick(e) {
-const t = e.target;
+if (Date.now() - _alTapAt < 400) return; // echo of a touch-handled tap — skip synthesized click
+handleApplockTap(e.target);
+}
+function handleApplockTap(t) {
 if (!t || !t.closest) return;
 const key = t.closest('.applock-key');
 if (key) {
