@@ -1,7 +1,7 @@
 // 第三方缓存版（2026-10-28c）：纯缓存优先——命中零网络秒回，杜绝每次加载的后台抓取风暴。
 // 机制：预缓存全站 + 纯缓存优先；更新靠发版时 bump CACHE 版本号，无强制重载、无弹窗、无后台抓取。
 // 发版说明：改任何 js/静态文件后，请把下面 CACHE 版本号改一下，SW 会自动换新缓存。
-const CACHE = 'mochi-royce-20261028i';
+const CACHE = 'mochi-royce-20261028l';
 const PRECACHE = [
 './',
 './index.html',

@@ -10726,6 +10726,8 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 .ml-sub{font-size:14px;color:#3a3a3a;font-weight:500}
 .ml-bar{width:min(260px,70vw);height:5px;border-radius:999px;background:#eee;overflow:hidden}
 .ml-fill{height:100%;width:0%;border-radius:999px;background:#111;transition:width .3s ease}
+.ml-fill.indet{width:100%!important;background:linear-gradient(90deg,#111 0%,#666 20%,#111 40%,#666 60%,#111 80%,#666 100%);background-size:200% 100%;animation:mlIndet 1s linear infinite;transition:none}
+@keyframes mlIndet{0%{background-position:200% 0}100%{background-position:0 0}}
 .ml-pct{font-size:12px;color:#555;font-weight:600;letter-spacing:1px;font-variant-numeric:tabular-nums}
 .ml-dots{display:flex;gap:6px;height:8px}
 .ml-dots i{width:6px;height:6px;border-radius:50%;background:#111;opacity:.2;animation:mlDot 1.2s ease-in-out infinite}
@@ -10759,7 +10761,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
   function stop() { stopped = true; }
   function tick() {
     if (stopped) return;
-    if (Date.now() - t0 > 8000) { stop(); return; } // 硬上限：绝不常驻
+    if (Date.now() - t0 > 35000) { stop(); return; } // 硬上限：慢网也给足时间，绝不常驻
     try {
       var sp = document.getElementById('splash');
       if (sp && sp.classList.contains('hide')) { stop(); return; } // 进站即停，绝不停留重绘
@@ -10775,14 +10777,37 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
       var p;
       try {
         var files = (window.__mochiJsFiles || []).length || 0;
-        var loaded = (window.__mochiLoaded || []).length;
-        var errs = (window.__mochiErrLoaded || []).length;
-        p = files > 0 ? Math.round((loaded + errs) / files * 100) : 0; // 真实比例：已加载/总数，不设人为上限
+        // 真实网络下载进度：已完成的 js 下载条目 / 总数（PerformanceResourceTiming 记录浏览器真实下载完成的资源）
+        // 旧版按「已执行脚本」算，但进站只需前几个核心脚本+数据恢复，其余 80 个还在后台下载,
+        // 于是进站瞬间只有 ~2% 已执行、进度条卡死在 2% 后突然跳进——改为下载进度后随文件到达平滑上升
+        var done = 0;
+        try {
+          var rs = performance.getEntriesByType('resource');
+          for (var i = 0; i < rs.length; i++) {
+            var nm = rs[i].name || '';
+            if (nm.indexOf('/js/') >= 0 && nm.slice(-3) === '.js') done++;
+          }
+        } catch (e2) {}
+        var execN = (window.__mochiLoaded || []).length + (window.__mochiErrLoaded || []).length;
+        var pd = files > 0 ? Math.round(done / files * 100) : 0;     // 下载完成比例
+        var pe = files > 0 ? Math.round(execN / files * 100) : 0;    // 已执行比例
+        // 文档解析阶段（真实信号）：loading=0，interactive=10%，complete=18%
+        var pdDoc = 0;
+        try { var rds = document.readyState; if (rds === 'interactive') pdDoc = 10; else if (rds === 'complete') pdDoc = 18; } catch (e3) {}
+        // 两条真实信号加权合成：文档阶段(0-18) + 下载/执行(0-81) = 上限 99%，数据就绪补满 100%
+        p = Math.min(99, pdDoc + Math.round(Math.max(pd, pe) * 0.81));
       } catch (e) { p = 0; }
-      if (window.__mochiDataReady && p < 100) p = 100; // 数据就绪后补满（通常此时脚本已全部加载完）
-      fill.style.width = p + '%';
-      pct.textContent = p + '%';
+      if (window.__mochiDataReady && p < 100) p = 100; // 数据就绪补满 100% 后由进站逻辑隐藏开屏
       if (p >= 100) { stop(); return; } // 就绪补满后停止
+      // 真实下载信号尚未出现（HTML 自身还在传输，无法计数）：显示流动加载动画，不假装数字
+      if (p < 8 && !window.__mochiDataReady) {
+        fill.classList.add('indet');
+        pct.textContent = '正在加载…';
+      } else {
+        fill.classList.remove('indet');
+        fill.style.width = p + '%';
+        pct.textContent = p + '%';
+      }
     } catch (e) {}
     setTimeout(tick, 250); // 降频：250ms/次，去掉每帧级重绘
   }
