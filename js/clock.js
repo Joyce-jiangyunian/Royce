@@ -494,21 +494,27 @@ readyForced = true;
 updateEnterState();
 }
 }, 20000);
-/* === 第三方优化（2026-10-28）：跳过开屏公告/须知/问卷/必读，数据就绪即自动进站 === */
-  var autoDone = false;
-  function autoEnter() {
-    if (autoDone) return;
-    autoDone = true;
-    try {
-      if (!splash.classList.contains('hide')) finishEnter();
-    } catch (e) { try { hide(); } catch (e2) {} }
+/* === 第三方优化（2026-10-28）：首页为图片+「点击进入」按钮 ===
+   点击后等数据就绪（最多约30s）再放行，避免出现「数据仍在加载/部分内容暂时看不到」提示条。 */
+  var _goBtn = document.getElementById('mochi-go');
+  var _goLd = document.getElementById('mochi-go-loading');
+  if (_goBtn) {
+    _goBtn.addEventListener('click', function (e) {
+      try { e.stopPropagation(); } catch (e2) {}
+      if (_goBtn.classList.contains('is-busy')) return;
+      if (splash.classList.contains('hide')) return;
+      if (ready()) { finishEnter(); return; }
+      _goBtn.classList.add('is-busy');
+      if (_goLd) _goLd.hidden = false;
+      var _n = 0;
+      var _t = setInterval(function () {
+        var gone = false;
+        try { gone = splash.classList.contains('hide'); } catch (e3) { gone = true; }
+        if (gone) { clearInterval(_t); return; }
+        if (ready() || ++_n > 120) { clearInterval(_t); finishEnter(); return; }
+      }, 250);
+    });
   }
-  if (ready()) autoEnter();
-  else (function wait(n) {
-    if (ready() || n >= 40) { autoEnter(); return; }
-    setTimeout(function () { wait(n + 1); }, 250);
-  })(0);
-  document.addEventListener('mochi-restore-done', function () { autoEnter(); });
 })();
 function renderSplashSections(container, sections, opt) {
 if (!container || !Array.isArray(sections)) return;
