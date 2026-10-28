@@ -507,12 +507,13 @@ updateEnterState();
       _goBtn.classList.add('is-busy');
       if (_goLd) _goLd.hidden = false;
       var _n = 0;
-      var _t = setInterval(function () {
+      (function _poll() {
         var gone = false;
         try { gone = splash.classList.contains('hide'); } catch (e3) { gone = true; }
-        if (gone) { clearInterval(_t); return; }
-        if (ready() || ++_n > 120) { clearInterval(_t); finishEnter(); return; }
-      }, 250);
+        if (gone) return;
+        if (ready() || ++_n > 120) { finishEnter(); return; }
+        setTimeout(_poll, 250);
+      })();
     });
   }
 })();

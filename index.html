@@ -28,7 +28,8 @@
 /* === Mochi 性能优化补丁（2026-10-28 第三方优化版） ===
    目的：缓解 iPhone 主线程长期满载导致页面完全无响应（冷启动后几乎点不动）。
    手段：1) 所有 setInterval 间隔下限提升到 1000ms（<1s 的高频常驻轮询被节流）；
-        2) 页面切到后台/锁屏时，定时器回调立即返回，不再占用主线程。
+        2) 页面切到后台/锁屏时，定时器回调立即返回，不再占用主线程；
+        3) 开屏等待期间（封面页）同样暂停功能定时器，让首屏更顺滑。
    说明：保留原作者署名（小红书@言序 1842523578），仅作性能优化，不改功能。 */
 (function () {
   try {
@@ -44,6 +45,7 @@
         var myId = nextId++;
         var real = _si(function () {
           if (document.hidden) return;
+          try { var _sp = document.getElementById('splash'); if (_sp && !_sp.classList.contains('hide')) return; } catch (eS) {}
           try { fn.apply(this, arguments); } catch (e) {}
         }, d);
         reg[myId] = real;
@@ -10738,45 +10740,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
       </div>
     </div>
   </div>
-    <!-- v3.8.y：底部操作区固定不随内容滚动；.splash-box 为整页滚动容器 -->
-    <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
-    <div class="splash-footcard">
-      <!-- 2026-10-01（作者直派「更新时间/更新提醒删掉、不写版号，只写已完结停更」）：原三行
-           （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
-           data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
-           仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1793114203061" data-version="v8.68">
-        <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
-      </div>
-      <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
-           只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
-      <div class="splash-loading" id="splash-loading">正在加载数据…</div>
-      <!-- #657：等得比较久时就地解释「为什么慢、不是坏了」——用户普遍把开屏等待当成 bug，
-           而这一刻他盯着的是这里、不会去翻公告章节。默认 hidden，只在
-           「数据多未就绪(slow)」或「数据已就绪但整页 5.5MB 资源还没加载完」时由 clock.js 显示 -->
-      <div class="splash-loading-sub" id="splash-loading-sub" hidden>首次打开要先联网下载整个网站的代码，再取回存在你本机的数据；网速慢、设备越旧、数据越多都会更慢，属正常，不是坏了。若长时间停在「正在加载页面」，多与当前网络连不上有关（某些 WiFi 对本站不稳定），换一个网络（WiFi 与流量互换）再试通常就能打开。</div>
-      <!-- v3.8.y：必须把公告滑到底才能进入——未到底时按钮置灰不可点，下方提示滑动 -->
-      <div class="splash-enter-hint" id="splash-enter-hint" hidden>请滑到底部后进入</div>
-      <!-- #315c：一次性年龄确认勾选——勾选后才可进入（clock.js 门控），确认一次后永久记住；
-           把免责从「默认你看了」升级为「明确勾选确认」，未勾选时进入按钮置灰 -->
-      <label class="splash-age" id="splash-age-row" hidden>
-        <input type="checkbox" id="splash-age-check">
-        <span>我已阅读并同意上方全部说明，确认本人已年满 18 周岁</span>
-        <!-- #1453：勾选行旁一条「查看免责声明」锚点——点它滚回上面那张免责卡（clock.js 接线，smooth 滚动手感同目录跳转）。
-             用 <a href="#splash-disclaimer"> 而非 span：不依赖 JS 也能跳（渐进增强）、原生可聚焦；JS 里 preventDefault 后不用 hash 跳转。
-             只提供查看入口，不改变门控：未勾选仍进不去（updateEnterState 一字未动） -->
-        <a class="splash-age-view" id="splash-age-view" href="#splash-disclaimer">查看免责声明</a>
-      </label>
-      <div class="splash-fold-toggle" id="splash-fold-toggle" hidden>折叠公告详情</div>
-      <div class="splash-btns">
-        <!-- v3.26.x：按钮文案「点击进入」→「我已阅读并知晓」——把进入动作显性化为已读确认（公告没人看的低成本对策第一步；门控/样式/脚本定位均未动） -->
-        <div class="splash-enter" id="splash-enter" hidden>我已阅读并知晓</div>
-      </div>
-      <!-- v3.26.x：数据加载超 12 秒仍未就绪时的逃生口（clock.js 控制显隐，默认 hidden）；
-           点此进入会提示「数据仍在加载，部分内容可能暂时看不见」，避免静默放行误入空数据 -->
-      <div class="splash-force-enter" id="splash-force-enter" hidden>仍要进入</div>
-    </div>
-  </div>
+  <div class="splash-ver" id="splash-ver" data-build-ts="1793114203061" data-version="v8.68" style="display:none"></div>
   <div class="phone">
       <div class="phone-bg-mask"></div>
       <div class="statusbar">
