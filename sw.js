@@ -1,7 +1,7 @@
-// 第三方缓存版（2026-10-28）：规范离线缓存——首次下载后秒开，更新随发版自动接管。
-// 机制：预缓存全站 → 后台 stale-while-revalidate 静默更新；无强制重载、无更新弹窗，从根上杜绝旧版拉回。
+// 第三方缓存版（2026-10-28c）：纯缓存优先——命中零网络秒回，杜绝每次加载的后台抓取风暴。
+// 机制：预缓存全站 + 纯缓存优先；更新靠发版时 bump CACHE 版本号，无强制重载、无弹窗、无后台抓取。
 // 发版说明：改任何 js/静态文件后，请把下面 CACHE 版本号改一下，SW 会自动换新缓存。
-const CACHE = 'mochi-royce-20261028b';
+const CACHE = 'mochi-royce-20261028c';
 const PRECACHE = [
 './',
 './index.html',
@@ -123,6 +123,8 @@ self.addEventListener('activate', function (event) {
 });
 
 self.addEventListener('fetch', function (event) {
+  // 纯缓存优先：命中立即返回，不发起后台网络抓取（避免每次加载全站后台重下，
+  // 抢占进入页面的网络/CPU 造成卡顿）。未命中才走网络并写入缓存。
   try {
     if (event.request.method !== 'GET') return;
     var url = new URL(event.request.url);
@@ -130,13 +132,9 @@ self.addEventListener('fetch', function (event) {
     event.respondWith((async function () {
       var c = await caches.open(CACHE);
       var hit = await c.match(event.request);
-      // 后台一律拉网络更新缓存（SWR）：既秒开，又自动拿到新版；无缓存时等网络
-      var net = fetch(event.request).then(function (r) {
-        if (r && r.status === 200) { c.put(event.request, r.clone()).catch(function () {}); }
-        return r;
-      }).catch(function () { return null; });
-      if (hit) { return hit; }
-      var r = await net;
+      if (hit) return hit; // 秒回缓存：零网络、零重绘竞争
+      var r = await fetch(event.request);
+      if (r && r.status === 200) c.put(event.request, r.clone()).catch(function () {});
       if (r) return r;
       if (event.request.mode === 'navigate') {
         var idx = await c.match('./index.html');
