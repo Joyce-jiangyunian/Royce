@@ -10717,21 +10717,6 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 
 </head>
 <body>
-<script>
-/* 第三方修复（2026-10-28）：立即注销全部 Service Worker 并清空站点缓存。 */
-/* 根因：旧版 sw.js 带预缓存，被覆盖后仍会拦截请求把旧网页（含开屏问卷/须知）拉回来， */
-/* 造成「新网页和旧网页来回闪退」。此段在页面启动第一步执行，一次性清除，之后每次纯网络加载。 */
-try {
-  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-    navigator.serviceWorker.getRegistrations().then(function (rs) {
-      rs.forEach(function (r) { r.unregister().catch(function () {}); });
-    }).catch(function () {});
-  }
-  if (window.caches && caches.keys) {
-    caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k).catch(function () {}); }); }).catch(function () {});
-  }
-} catch (e) {}
-</script>
   <!-- 开屏加载动画 -->
   <div class="splash" id="splash" style="background:var(--page-bg,#e9e9e9);">
     <div class="splash-box" id="splash-box"></div>
