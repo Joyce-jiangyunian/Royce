@@ -1,7 +1,7 @@
 // 第三方缓存版（2026-10-28）：规范离线缓存——首次下载后秒开，更新随发版自动接管。
 // 机制：预缓存全站 → 后台 stale-while-revalidate 静默更新；无强制重载、无更新弹窗，从根上杜绝旧版拉回。
 // 发版说明：改任何 js/静态文件后，请把下面 CACHE 版本号改一下，SW 会自动换新缓存。
-const CACHE = 'mochi-royce-20261028a';
+const CACHE = 'mochi-royce-20261028b';
 const PRECACHE = [
 './',
 './index.html',
