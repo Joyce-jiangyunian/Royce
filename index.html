@@ -10762,7 +10762,15 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
     try {
       var sp = document.getElementById('splash');
       if (sp && sp.classList.contains('hide')) { stop(); return; } // 进站即停，绝不停留重绘
-      if (window.mochiOverlayBusy && window.mochiOverlayBusy()) { setTimeout(tick, 500); return; } // 弹窗/输入开着时暂停刷新，绝不抢输密码的帧
+      // 弹窗/密码盘开着时暂停刷新（精确探测：老版 mochiOverlayBusy 会把开屏自身误判为忙，进度条永停 0%）
+      var busy = false;
+      try {
+        var mm = document.getElementById('modal-mask');
+        if (mm && !mm.hidden) busy = true;
+        var al = document.getElementById('applock-mask');
+        if (al && !al.hidden) busy = true;
+      } catch (e) {}
+      if (busy) { setTimeout(tick, 500); return; }
       var p;
       try {
         var files = (window.__mochiJsFiles || []).length || 0;
