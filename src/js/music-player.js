@@ -3359,13 +3359,21 @@
   const qd = { active: null, timer: null, dragging: false, section: null, sx: 0, sy: 0, notMoved: false, bound: false, suppressClick: false };
   function qdBindGlobals() {
     if (qd.bound) return; qd.bound = true;
-    document.addEventListener('touchmove', qdOnMove, { passive: false });
+    document.addEventListener('touchmove', qdOnMove, { passive: true });
     document.addEventListener('mousemove', qdOnMove);
     document.addEventListener('touchend', qdOnEnd);
     document.addEventListener('touchcancel', qdOnEnd);
     document.addEventListener('mouseup', qdOnEnd);
   }
   function qdPoint(e) { return (e.touches && e.touches[0]) || e; }
+  function qdDragBlock(e) { if (qd.dragging) { try { e.preventDefault(); } catch (err) {} } }
+  function qdBlockBind() {
+    try { document.removeEventListener('touchmove', qdDragBlock); } catch (e) {}
+    document.addEventListener('touchmove', qdDragBlock, { passive: false });
+  }
+  function qdBlockUnbind() {
+    try { document.removeEventListener('touchmove', qdDragBlock); } catch (e) {}
+  }
   function qdOnMove(e) {
     if (!qd.dragging) {
       if (qd.notMoved && qd.active) {
@@ -3377,7 +3385,7 @@
       }
       return;
     }
-    e.preventDefault();
+    // 2026-10-29: preventDefault 由 qdDragBlock（passive:false）负责
     const sec = qd.section;
     if (!sec || !qd.active) return;
     const p = qdPoint(e);
@@ -3410,6 +3418,7 @@
     }
     qd.dragging = false; qd.active = null; qd.notMoved = false;
     document.body.style.userSelect = '';
+    try { qdBlockUnbind(); } catch (eUn) {}
   }
   function qdStart(e, row) {
     if (e.target.closest('[data-qrm]')) return;
@@ -3419,6 +3428,7 @@
     if (qd.timer) clearTimeout(qd.timer);
     qd.timer = setTimeout(function () {
       qd.dragging = true;
+      try { qdBlockBind(); } catch (eBlk) {}
       try { document.setAttribute('aria-grabbed', 'true'); } catch (err) {}
       row.classList.add('dragging');
       document.body.style.userSelect = 'none';

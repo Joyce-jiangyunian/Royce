@@ -5125,10 +5125,25 @@ if (pp.hidden && deskMsgEl && !deskMsgEl.hidden) window.hideDeskMsg();
 let deskMsgSuppressClick = false;
 let deskMsgSuppressTimer = null;
 let dDrag = null;
+function deskMsgDragMoveHandler(e) {
+if (!dDrag) return;
+const t = e.touches && e.touches[0];
+if (t && deskMsgDragMove(t.clientX, t.clientY)) {
+try { e.preventDefault(); } catch (err) {}
+}
+}
 function deskMsgDragStart(cx, cy) {
 if (!deskMsgEl || deskMsgEl.hidden) return;
 dDrag = { x: cx, y: cy, moved: false, speed: 0, lastX: cx, lastT: Date.now() };
 deskMsgEl.style.transition = 'none'; // 拖拽过程中不带动画，实时跟手
+try { window.addEventListener('touchmove', deskMsgDragMoveHandler, { passive: false }); } catch (eAdd) {}
+function deskMsgDragRemoveListener() {
+try { window.removeEventListener('touchmove', deskMsgDragMoveHandler, { passive: false }); } catch (eRm) {}
+try { window.removeEventListener('touchend', deskMsgDragRemoveListener); } catch (eRm2) {}
+try { window.removeEventListener('touchcancel', deskMsgDragRemoveListener); } catch (eRm3) {}
+}
+window.addEventListener('touchend', deskMsgDragRemoveListener);
+window.addEventListener('touchcancel', deskMsgDragRemoveListener);
 }
 function deskMsgDragMove(cx, cy) {
 if (!dDrag) return false;
@@ -5179,13 +5194,6 @@ deskMsgEl.addEventListener('touchstart', (e) => {
 const t = e.touches && e.touches[0];
 if (t) deskMsgDragStart(t.clientX, t.clientY);
 }, { passive: true });
-window.addEventListener('touchmove', (e) => {
-if (!dDrag) return;
-const t = e.touches && e.touches[0];
-if (t && deskMsgDragMove(t.clientX, t.clientY)) {
-try { e.preventDefault(); } catch (err) {}
-}
-}, { passive: false });
 const endTouch = (e) => {
 const c = e.changedTouches && e.changedTouches[0];
 deskMsgDragEnd(c ? c.clientX : (dDrag ? dDrag.x : 0));
