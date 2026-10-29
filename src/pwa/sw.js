@@ -179,14 +179,6 @@ self.addEventListener('activate', (e) => {
               }
             }).catch(() => {}));
           });
-        })
-        // 2026-10-29: SW take-over auto refreshes open pages
-        .then(() => {
-          try {
-            return self.clients.matchAll({ type: 'window' }).then((cls) => {
-              cls.forEach((cl) => { try { cl.navigate(cl.url); } catch (e2) {} });
-            }).catch(() => {});
-          } catch (e3) { return undefined; }
         });
     })
   );

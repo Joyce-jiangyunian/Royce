@@ -3079,8 +3079,8 @@
       } catch (e4) { reload(); }
     } catch (e) {}
   }
-  if (document.readyState === 'complete') setTimeout(checkDoc, 60000);
-  else window.addEventListener('load', function () { setTimeout(checkDoc, 60000); });
+  setTimeout(checkDoc, 8000); if (document.readyState !== 'complete') { } // 2026-10-29 提速：60s->8s（截断不再干等一分钟）
+  else { window.addEventListener('DOMContentLoaded', function () { setTimeout(checkDoc, 2500); }); window.addEventListener('load', function () { setTimeout(checkDoc, 8000); }); }
 })();
 
 // ===== v3.26.x #209：视口形态判定器（单一事实源）=====
