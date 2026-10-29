@@ -62,7 +62,10 @@
   }
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      sdLeaveSnap();
+      // 2026-10-29 按钮响应提速：sdLeaveSnap 的全屏几何采集（20K 节点强制重排）
+      // 之前同步跑在点击第一行，3 秒冷却一过就卡 100~500ms——按钮延迟响应的直接元凶。
+      // 改为切页结束后异步补拍：先完成页面切换（用户立刻看到响应），诊断在下一拍跑。
+      setTimeout(sdLeaveSnap, 0);
       // FIX #815：先拿目标页再关其它页——旧写法关完才 getElementById，目标取不到就是
       // TypeError，而此时全部页已 hidden＝整屏空白卡死。取不到目标就一页都不关。
       const target = document.getElementById(tab.dataset.page || '');

@@ -37,7 +37,7 @@ document.querySelectorAll('.page').forEach(p => { if (!p.hidden) p.hidden = true
 }
 tabs.forEach(tab => {
 tab.addEventListener('click', () => {
-sdLeaveSnap();
+setTimeout(sdLeaveSnap, 0);
 const target = document.getElementById(tab.dataset.page || '');
 if (!target) {
 try { if (window.__jsErrors) window.__jsErrors.push('底部 tab 目标页缺失（data-page=' + (tab.dataset.page || '?') + '），已放弃本次切页'); } catch (e3) {}
