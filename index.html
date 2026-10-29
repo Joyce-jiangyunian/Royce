@@ -25,6 +25,62 @@
      另：旧版本残留的 data-theme 属性在此强制清掉，保证「选浅色」真回浅色。 -->
 <script>try{var _tm=localStorage.getItem('xy-home-v2:theme-mode');if(_tm==='dark'||(_tm!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}</script>
 <script>
+/* === Royce 启动守卫（2026-10-29 第三方加固）===
+   根治手机端两类死锁（与后续逻辑完全解耦，只做"检测+逃生"，不改任何既有门控）：
+   ① 文档被 CDN/缓存截断 → 开屏结束与进站代码缺失 → 永久卡加载；
+      守卫跑在 <head> 最前面，解析期就查 EOF 锚点，残缺则清缓存带 ?_heal= 重新拉取（本会话仅一次，防环路）。
+   ② 核心脚本没下齐、数据迟迟不就绪 → 开屏死等转圈；
+      45 秒兜底：数据仍未就绪则放行进站并弹显式提示，绝不无限转圈。 */
+(function () {
+  var FLAG = 'mochi-trunc-reloaded';
+  function trunc() {
+    try { return !document.getElementById('mochi-html-eof'); } catch (e) { return false; }
+  }
+  function seen() { try { return sessionStorage.getItem(FLAG) === '1'; } catch (e) { return false; } }
+  function mark() { try { sessionStorage.setItem(FLAG, '1'); } catch (e2) {} }
+  function healReload() {
+    if (seen()) return;
+    mark();
+    var sep = location.search.indexOf('?') >= 0 ? '&' : '?';
+    function go() { try { location.replace(location.pathname + sep + '_heal=' + Date.now()); } catch (e3) { try { location.reload(); } catch (e4) {} } }
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        var done = false;
+        var fire = function () { if (!done) { done = true; setTimeout(go, 120); } };
+        navigator.serviceWorker.addEventListener('message', function h(ev) {
+          if (ev.data && ev.data.type === 'PURGE_DONE') { try { navigator.serviceWorker.removeEventListener('message', h); } catch (e0) {} fire(); }
+        });
+        navigator.serviceWorker.controller.postMessage({ type: 'PURGE_INDEX' });
+        setTimeout(fire, 1500);
+      } else go();
+    } catch (e5) { go(); }
+  }
+  function checkTrunc() { if (trunc()) healReload(); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(checkTrunc, 1200); });
+  } else setTimeout(checkTrunc, 1200);
+  window.addEventListener('load', function () { setTimeout(checkTrunc, 2500); });
+  // 45s 兜底：仍在开屏且数据没就绪 -> 放行进站 + 显式提示（绝不无限转圈）
+  setTimeout(function () {
+    try {
+      if (window.__mochiDataReady) return;
+      var sp = document.getElementById('splash');
+      if (!sp || sp.classList.contains('hide')) return;
+      sp.classList.add('hide');
+      setTimeout(function () { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 600);
+      var b = document.createElement('div');
+      b.className = 'ver-update-bar';
+      b.style.cssText = 'cursor:pointer;flex-wrap:wrap;row-gap:6px;';
+      b.innerHTML = '<span class="vub-txt">加载超时·已放行进入，部分功能仍在后台补齐</span><b class="vub-act">点此重试</b>';
+      b.addEventListener('click', function () {
+        try { var sep = location.search.indexOf('?') >= 0 ? '&' : '?'; location.replace(location.pathname + sep + '_heal=' + Date.now()); } catch (e6) {}
+      });
+      (document.body || document.documentElement).appendChild(b);
+    } catch (e7) {}
+  }, 45000);
+})();
+</script>
+<script>
 /* === Mochi 性能优化补丁（2026-10-28 第三方优化版） ===
    目的：缓解 iPhone 主线程长期满载导致页面完全无响应（冷启动后几乎点不动）。
    手段：1) 所有 setInterval 间隔下限提升到 1000ms（<1s 的高频常驻轮询被节流）；
@@ -64,19 +120,9 @@
 })();
 </script>
 <script>
-/* 第三方优化（2026-10-28）：自动注销旧版离线缓存管家（Service Worker），避免手机一直被旧缓存钉住；
-   注销成功后刷新一次拿到全新页面；没有则什么都不做（不影响正常使用）。 */
-(function () {
-  try {
-    if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
-    navigator.serviceWorker.getRegistration().then(function (reg) {
-      if (!reg) return;
-      var done = false;
-      try { done = !navigator.serviceWorker.controller; } catch (e) {}
-      reg.unregister().then(function (ok) { if (ok && !done) { try { location.reload(); } catch (e2) {} } }).catch(function () {});
-    }).catch(function () {});
-  } catch (e) {}
-})();
+/* 第三方加固（2026-10-29）：原"每次进站自动注销 Service Worker"补丁已移除——
+   它与 sw.js 的注册互相打架（注销→刷新→再注册），是反复闪退主因之一。
+   离线缓存与版本更新统一交给 sw.js（残缺体不进缓存 + 导航后台更新 + ?_heal= 自愈通道）。 */
 </script>
 
 <style>
@@ -20003,8 +20049,8 @@ setTimeout(reload, 1200); // SW 无响应也重载（浏览器 HTTP 缓存可能
 } catch (e4) { reload(); }
 } catch (e) {}
 }
-if (document.readyState === 'complete') setTimeout(checkDoc, 60000);
-else window.addEventListener('load', function () { setTimeout(checkDoc, 60000); });
+setTimeout(checkDoc, 8000); if (document.readyState !== 'complete') { } // 2026-10-29 第三方加固：60s -> 8s（截断页不再干等一分钟）
+else { window.addEventListener('DOMContentLoaded', function () { setTimeout(checkDoc, 2500); }); window.addEventListener('load', function () { setTimeout(checkDoc, 8000); }); }
 })();
 window.mochiViewportForm = function (sig) {
 const envTop = sig.envTop || 0;
