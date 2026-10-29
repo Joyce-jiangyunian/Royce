@@ -9215,19 +9215,22 @@ const mm = Math.floor(t / 600), ss = Math.floor((t % 600) / 10), ds = t % 10;
 return (mm < 10 ? '0' + mm : '' + mm) + ':' + (ss < 10 ? '0' + ss : '' + ss) + '.' + ds;
 };
 const render = () => {
+let vis = true;
+try { if (document.hidden || disp.offsetParent === null) vis = false; } catch (eVis) {}
 if (dtState.mode === 'up') {
 const ms = dtState.running ? (Date.now() - dtState.startTs + dtState.elapsed) : dtState.elapsed;
-disp.textContent = fmt(ms);
+if (vis) disp.textContent = fmt(ms);
 } else {
 const remain = dtState.running ? (dtState.target - (Date.now() - dtState.startTs) - dtState.elapsed) : (dtState.target - dtState.elapsed);
-disp.textContent = fmt(remain);
 if (dtState.running && remain <= 0) {
 dtState.running = false;
 if (dtTimer) { clearInterval(dtTimer); dtTimer = null; }
-startBtn.textContent = '开始';
-disp.textContent = '00:00.0';
+try { startBtn.textContent = '开始'; } catch (eB) {}
+try { disp.textContent = '00:00.0'; } catch (eD) {}
 toast('倒计时结束');
 try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
+} else if (vis) {
+disp.textContent = fmt(remain);
 }
 }
 };

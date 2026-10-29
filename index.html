@@ -11215,7 +11215,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1793247134633" data-version="v8.2">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1793247731882" data-version="v8.2">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -21029,9 +21029,25 @@ sdArchive(r, 'auto');
 _sdPend = { sig: bad, names: badNames.join('、'), snap: sdSnapOf(r, 'auto') };
 } catch (e2) {}
 }
-setInterval(sdTick, 5000);
+try {
+window.__mochiLastAct = 0;
+var actMark = function () { try { window.__mochiLastAct = Date.now(); } catch (eA) {} };
+window.addEventListener('touchstart', actMark, { capture: true, passive: true });
+window.addEventListener('touchmove', actMark, { capture: true, passive: true });
+window.addEventListener('pointerdown', actMark, { capture: true, passive: true });
+window.addEventListener('pointermove', actMark, { capture: true, passive: true });
+window.addEventListener('scroll', actMark, { capture: true, passive: true });
+} catch (eAC) {}
+function sdTickQ() {
+try {
+var _la = window.__mochiLastAct || 0;
+if (_la && Date.now() - _la < 1200) return; // 交互进行中：让出主线程
+} catch (eL) {}
+sdTick();
+}
+setInterval(sdTickQ, 5000);
 let _sdEdgeT = null;
-function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 1200); }
+function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTickQ, 1200); }
 try { window.addEventListener('resize', sdEdge); } catch (e3) {}
 try { if (window.visualViewport) window.visualViewport.addEventListener('resize', sdEdge); } catch (e4) {}
 try { window.addEventListener('orientationchange', sdEdge); } catch (e5) {}
@@ -22906,4 +22922,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvt11kmh -->
+<!-- __MOCHI_EOF__ mvt1edgq -->

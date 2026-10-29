@@ -3978,12 +3978,31 @@ window.mochiViewportForm = function (sig) {
       _sdPend = { sig: bad, names: badNames.join('、'), snap: sdSnapOf(r, 'auto') };
     } catch (e2) {}
   }
-  setInterval(sdTick, 5000);
+  // 2026-10-29 滑动流畅度加固：手指/触控最近 1.2 秒在动时跳过屏幕诊断采集——
+  // 5s 轮询里的全量几何采集会强制重排，撞上滑动即一顿。静默期不丢证据：
+  // resize/旋转的 sdEdge 会在手势停下 1.2s 后补拍，下个 5s 轮询也会再试。
+  try {
+    window.__mochiLastAct = 0;
+    var actMark = function () { try { window.__mochiLastAct = Date.now(); } catch (eA) {} };
+    window.addEventListener('touchstart', actMark, { capture: true, passive: true });
+    window.addEventListener('touchmove', actMark, { capture: true, passive: true });
+    window.addEventListener('pointerdown', actMark, { capture: true, passive: true });
+    window.addEventListener('pointermove', actMark, { capture: true, passive: true });
+    window.addEventListener('scroll', actMark, { capture: true, passive: true });
+  } catch (eAC) {}
+  function sdTickQ() {
+    try {
+      var _la = window.__mochiLastAct || 0;
+      if (_la && Date.now() - _la < 1200) return; // 交互进行中：让出主线程
+    } catch (eL) {}
+    sdTick();
+  }
+  setInterval(sdTickQ, 5000);
   // #209：事件沿捕获——5s 轮询会漏瞬态（切后台回来 innerHeight 短报整屏、旋转中
   // 态等，#208 守卫注释里的 21:32 瞬态即轮询空窗撞上的），resize/vv resize/旋转/
   // 回前台各补一次 1.2s 去抖采集，与轮询走同一套键盘守卫+签名去重
   let _sdEdgeT = null;
-  function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 1200); }
+  function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTickQ, 1200); }
   try { window.addEventListener('resize', sdEdge); } catch (e3) {}
   try { if (window.visualViewport) window.visualViewport.addEventListener('resize', sdEdge); } catch (e4) {}
   try { window.addEventListener('orientationchange', sdEdge); } catch (e5) {}
