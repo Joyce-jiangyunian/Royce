@@ -286,16 +286,8 @@
           //（弹窗侧有本会话去重，重试多弹无害）；约 20s 仍没就绪＝外置件加载失败，放弃本次。
           if (ts > baseTs) {
             tryAutoUpgrade(ts);
-            const urShow = window.mochiUpdateRemindShow;
-            if (urShow) urShow();
-            else {
-              let n = 0;
-              const rt = setInterval(function () {
-                const f = window.mochiUpdateRemindShow;
-                if (f) { clearInterval(rt); f(); }
-                else if (++n > 40) clearInterval(rt);
-              }, 500);
-            }
+            // 2026-10-29 强制刷新弹窗（update-remind.js）已按用户要求删除：
+            // 只保留静默换版（tryAutoUpgrade 预取 + SW 接管自动刷新），不再弹窗打断。
           }
           askSwUpdate(); // FIX 2026-09-28 #1351c：判出「线上比这一页新」这一刻就去请 sw.js 重新装一次（见函数注释）
         })
