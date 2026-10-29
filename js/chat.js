@@ -12316,8 +12316,6 @@ if (taTabEl) taTabEl.textContent = chatPartnerName() + ' 的' + textCatLabel();
 if (pubTabEl) pubTabEl.textContent = '公用' + textCatLabel();
 if (mineTabEl) mineTabEl.textContent = '我的' + textCatLabel();
 if (emojiTools) emojiTools.hidden = !(emojiMode === 'mine' && emojiCat === 'sticker');
-const pubStkTools = document.getElementById('pub-sticker-tools');
-if (pubStkTools) pubStkTools.hidden = !(emojiMode === 'public' && emojiCat === 'sticker');
 if (emojiTextTools) {
 emojiTextTools.hidden = !(emojiMode === 'mine' && emojiCat !== 'sticker');
 if (mytBatchBtn) mytBatchBtn.textContent = myTextBatch ? '退出批量' : '批量管理';
@@ -12341,7 +12339,7 @@ if (emojiMode !== 'mine') {
 const isPub = emojiMode === 'public';
 const groups = (window.getScopedGroups && window.getScopedGroups('sticker', isPub ? 'public' : 'own')) || [];
 const emptyAll = isPub
-? '<div class="emoji-empty">暂无公用表情包<br>点击上方「上传表情」直接添加，或到 字卡库 → 公用字卡 → 表情包 上传</div>'
+? '<div class="emoji-empty">暂无公用表情包<br>请到 字卡库 → 公用字卡 → 表情包 上传</div>'
 : '<div class="emoji-empty">暂无表情包<br>请到 字卡库 → 专属字卡 → 表情包 上传</div>';
 if (!groups.length) {
 emojiList.innerHTML = ccPanelsFetching ? ccLoadRowHtml('正在加载表情包…') : emptyAll;
@@ -12365,7 +12363,7 @@ return;
 const g = groups.find(x => x[0] === curn);
 if (!g || !g[1].length) {
 emojiList.innerHTML = isPub
-? '<div class="emoji-empty">该分组暂无公用表情包<br>点击上方「上传表情」直接添加，或到 字卡库 → 公用字卡 → 表情包 上传</div>'
+? '<div class="emoji-empty">该分组暂无公用表情包<br>请到 字卡库 → 公用字卡 → 表情包 上传</div>'
 : '<div class="emoji-empty">该分组暂无表情包<br>请到 字卡库 → 专属字卡 → 表情包 上传</div>';
 return;
 }
@@ -13267,51 +13265,6 @@ reader.onerror = () => miss('部分图片读取失败');
 reader.readAsDataURL(f);
 });
 } catch (err) { toast('添加表情失败，请重试'); }
-}
-});
-});
-}
-// 第三方二改：公用表情包面板内直传（免跑去字卡库），落库走 chatcard.js·ccAppendMediaCards
-const pubAddBtn = document.getElementById('pub-add-sticker');
-if (pubAddBtn && window.mochiFilePickSurface) window.mochiFilePickSurface(pubAddBtn, { id: 'pub-add-tap', accept: 'image/*', multiple: true, owner: 'mochi-pubsticker-pick' });
-if (pubAddBtn) {
-pubAddBtn.addEventListener('click', (e) => {
-e.stopPropagation();
-window.mochiFilePick({
-id: 'mochi-pubsticker-pick', accept: 'image/*', multiple: true,
-onFiles: (files) => {
-try {
-if (!files.length) { toast('没有取到图片，请再选一次'); return; }
-if (!window.ccAppendMediaCards) { toast('字卡组件还没加载好，请稍后再试'); return; }
-const glist = (window.getScopedGroups && window.getScopedGroups('sticker', 'public')) || [];
-const target = (pubCurGroup && pubCurGroup !== '__recent__' && glist.some(x => x[0] === pubCurGroup)) ? pubCurGroup : '表情包';
-let done = 0; const out = [];
-const finish = () => {
-if (done !== files.length) return;
-if (!out.length) { toast('没有可上传的图片'); return; }
-const ok = window.ccAppendMediaCards('sticker', target, out, 'public');
-pubCurGroup = target;
-saveEmojiGroupPref();
-renderEmojiPanel();
-toast(ok ? ('已上传 ' + out.length + ' 张到公用表情包【' + target + '】') : ('已提交 ' + out.length + ' 张到【' + target + '】，字卡库写入中（大库首次写入可能延迟几秒）'));
-};
-files.forEach(f => {
-if (f.size > 20 * 1024 * 1024) { done++; toast('【' + ((f && f.name) || '图片') + '】超过 20MB，已跳过'); finish(); return; }
-const isGif = /image\/gif/i.test(f.type || '') || /\.gif$/i.test(f.name || '');
-if (!isGif) {
-const p = window.mochiImgCompressTo ? window.mochiImgCompressTo(f, { maxSide: 480, mime: 'image/png', tag: 'pubsticker' }) : Promise.resolve(null);
-p.then(data => { if (data) out.push(data); done++; finish(); }).catch(() => { done++; finish(); });
-return;
-}
-const reader = new FileReader();
-reader.onload = () => {
-if (String(reader.result || '').length > 512 * 1024) { done++; toast('动图【' + ((f && f.name) || '动图') + '】超过 512KB，已跳过'); finish(); return; }
-out.push(String(reader.result || '')); done++; finish();
-};
-reader.onerror = () => { done++; toast('有图片读取失败，已跳过'); finish(); };
-reader.readAsDataURL(f);
-});
-} catch (err) { toast('上传表情失败，请重试'); }
 }
 });
 });

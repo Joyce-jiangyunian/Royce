@@ -25,17 +25,13 @@
      另：旧版本残留的 data-theme 属性在此强制清掉，保证「选浅色」真回浅色。 -->
 <script>try{var _tm=localStorage.getItem('xy-home-v2:theme-mode');if(_tm==='dark'||(_tm!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}</script>
 <script>
-/* === Royce 启动守卫（2026-10-29 第三方加固）===
-   根治手机端两类死锁（与后续逻辑完全解耦，只做"检测+逃生"，不改任何既有门控）：
-   ① 文档被 CDN/缓存截断 → 开屏结束与进站代码缺失 → 永久卡加载；
-      守卫跑在 <head> 最前面，解析期就查 EOF 锚点，残缺则清缓存带 ?_heal= 重新拉取（本会话仅一次，防环路）。
-   ② 核心脚本没下齐、数据迟迟不就绪 → 开屏死等转圈；
-      45 秒兜底：数据仍未就绪则放行进站并弹显式提示，绝不无限转圈。 */
+/* === Royce 启动守卫（2026-10-29，无侵入版）===
+   只做一件事：load 后校验文档完整性（EOF 锚点缺失=被 CDN/缓存截断），
+   残缺则清缓存后带 ?_heal=1 重新拉取（本会话仅一次，防环路）。
+   绝不干预门控、绝不自动放行进站——开屏进度/进站时机 100% 由既有逻辑负责。 */
 (function () {
   var FLAG = 'mochi-trunc-reloaded';
-  function trunc() {
-    try { return !document.getElementById('mochi-html-eof'); } catch (e) { return false; }
-  }
+  function trunc() { try { return !document.getElementById('mochi-html-eof'); } catch (e) { return false; } }
   function seen() { try { return sessionStorage.getItem(FLAG) === '1'; } catch (e) { return false; } }
   function mark() { try { sessionStorage.setItem(FLAG, '1'); } catch (e2) {} }
   function healReload() {
@@ -55,79 +51,16 @@
       } else go();
     } catch (e5) { go(); }
   }
-  function checkTrunc() { if (trunc()) healReload(); }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(checkTrunc, 1200); });
-  } else setTimeout(checkTrunc, 1200);
-  window.addEventListener('load', function () { setTimeout(checkTrunc, 2500); });
-  // 45s 兜底：仍在开屏且数据没就绪 -> 放行进站 + 显式提示（绝不无限转圈）
-  setTimeout(function () {
-    try {
-      if (window.__mochiDataReady) return;
-      var sp = document.getElementById('splash');
-      if (!sp || sp.classList.contains('hide')) return;
-      sp.classList.add('hide');
-      setTimeout(function () { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 600);
-      var b = document.createElement('div');
-      b.className = 'ver-update-bar';
-      b.style.cssText = 'cursor:pointer;flex-wrap:wrap;row-gap:6px;';
-      b.innerHTML = '<span class="vub-txt">加载超时·已放行进入，部分功能仍在后台补齐</span><b class="vub-act">点此重试</b>';
-      b.addEventListener('click', function () {
-        try { var sep = location.search.indexOf('?') >= 0 ? '&' : '?'; location.replace(location.pathname + sep + '_heal=' + Date.now()); } catch (e6) {}
-      });
-      (document.body || document.documentElement).appendChild(b);
-    } catch (e7) {}
-  }, 45000);
+  function check() { if (trunc()) healReload(); }
+  // 文档已完全解析（load 后）才查——避免大文档解析途中误判
+  if (document.readyState === 'complete') setTimeout(check, 3000);
+  else window.addEventListener('load', function () { setTimeout(check, 3000); });
+  // 二次确认：load 后 15s 再查一遍（极端慢解析场景）
+  window.addEventListener('load', function () { setTimeout(check, 15000); });
 })();
 </script>
-<script>
-/* === Mochi 性能优化补丁（2026-10-28 第三方优化版） ===
-   目的：缓解 iPhone 主线程长期满载导致页面完全无响应（冷启动后几乎点不动）。
-   手段：1) 所有 setInterval 间隔下限提升到 1000ms（<1s 的高频常驻轮询被节流）；
-        2) 页面切到后台/锁屏时，定时器回调立即返回，不再占用主线程；
-        
-   说明：保留原作者署名（小红书@言序 1842523578），仅作性能优化，不改功能。 */
-(function () {
-  try {
-    var MIN_MS = 1000;
-    var _si = window.setInterval.bind(window);
-    var _ci = window.clearInterval.bind(window);
-    var reg = Object.create(null), nextId = 1;
-    window.setInterval = function (fn, ms) {
-      try {
-        if (typeof fn !== 'function') return _si(fn, ms);
-        var d = parseInt(ms, 10); if (isNaN(d) || d < 0) d = 0;
-        if (d > 0 && d < MIN_MS) d = MIN_MS;
-        var myId = nextId++;
-        var real = _si(function () {
-          if (document.hidden) return;
-          try { var _sp = document.getElementById('splash'); if (_sp && !_sp.classList.contains('hide')) return; } catch (eS) {}
-          try { var _al = document.getElementById('applock-mask'); if (_al && !_al.hidden) return; } catch (eA) {} // 应用锁密码盘开着时暂停，输完再恢复
-          try { fn.apply(this, arguments); } catch (e) {}
-        }, d);
-        reg[myId] = real;
-        return myId;
-      } catch (e) { return _si(fn, ms); }
-    };
-    window.clearInterval = function (id) {
-      try {
-        var real = reg[id];
-        if (real !== undefined) { _ci(real); delete reg[id]; return; }
-        _ci(id);
-      } catch (e) { _ci(id); }
-    };
-  } catch (e) {}
-})();
-</script>
-<script>
-/* 第三方加固（2026-10-29）：原"每次进站自动注销 Service Worker"补丁已移除——
-   它与 sw.js 的注册互相打架（注销→刷新→再注册），是反复闪退主因之一。
-   离线缓存与版本更新统一交给 sw.js（残缺体不进缓存 + 导航后台更新 + ?_heal= 自愈通道）。 */
-</script>
-
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-button, .div-switch, [role="button"], .tab, .cc-g-chip, .emoji-g-chip { touch-action:manipulation; }
 :root {
 color-scheme:only light;
 --ink:#111111; --muted:#8a8a8a; --line:#e6e6e6;
@@ -4405,15 +4338,15 @@ display:flex; align-items:center; justify-content:space-between; gap:10px;
 .div-switch-row .div-switch-t { font-size:13px; font-weight:600; color:var(--ink); }
 .div-switch { position:relative; width:44px; height:26px; flex-shrink:0; }
 .div-switch input {
-position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; z-index:2; touch-action:manipulation;
+position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; z-index:2;
 }
 .div-switch-knob {
 position:absolute; inset:0; border-radius:99px; background:rgba(0,0,0,.18);
-transition:background .15s cubic-bezier(.4,0,.2,1);
+transition:background .2s ease;
 }
 .div-switch-knob::after {
 content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
-background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.28); transition:transform .15s cubic-bezier(.4,0,.2,1); will-change:transform;
+background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.28); transition:transform .2s ease;
 }
 .div-switch input:checked + .div-switch-knob { background:var(--ink); }
 .div-switch input:checked + .div-switch-knob::after { transform:translateX(18px); }
@@ -10763,105 +10696,592 @@ width: 100%; margin-top: 8px; padding: 8px; background: none; border: none;
 font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: manipulation;
 }
 </style>
-<style>
-/* 第三方美化开屏（2026-10-28）：白底黑字·Informal Roman 字标·真实进度条 */
-.splash{background:#fff!important}
-[data-theme="dark"] .splash{background:radial-gradient(130% 42% at 50% 0%, var(--sp-glow) 0%, transparent 72%), var(--card-bg)!important}
-.ml-wrap{width:100%;margin:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:30px 24px;pointer-events:none}
-.ml-name{font-family:'Trattatello','Cooper Black','Papyrus','Didot','Baskerville',Georgia,serif;font-size:52px;font-weight:400;letter-spacing:1px;color:#111;line-height:1.15;white-space:nowrap}
-.ml-sub{font-size:14px;color:#3a3a3a;font-weight:500}
-.ml-bar{width:min(260px,70vw);height:5px;border-radius:999px;background:#eee;overflow:hidden}
-.ml-fill{height:100%;width:0%;border-radius:999px;background:#111;transition:width .3s ease}
-.ml-fill.indet{width:100%!important;background:linear-gradient(90deg,#111 0%,#666 20%,#111 40%,#666 60%,#111 80%,#666 100%);background-size:200% 100%;animation:mlIndet 1s linear infinite;transition:none}
-@keyframes mlIndet{0%{background-position:200% 0}100%{background-position:0 0}}
-.ml-pct{font-size:12px;color:#555;font-weight:600;letter-spacing:1px;font-variant-numeric:tabular-nums}
-.ml-dots{display:flex;gap:6px;height:8px}
-.ml-dots i{width:6px;height:6px;border-radius:50%;background:#111;opacity:.2;animation:mlDot 1.2s ease-in-out infinite}
-.ml-dots i:nth-child(2){animation-delay:.2s}
-.ml-dots i:nth-child(3){animation-delay:.4s}
-@keyframes mlDot{0%,100%{opacity:.15;transform:translateY(0)}50%{opacity:.8;transform:translateY(-3px)}}
-[data-theme="dark"] .ml-name{color:#f2f2f2}
-[data-theme="dark"] .ml-sub{color:#bbb}
-@media (prefers-reduced-motion:reduce){.ml-dots i{animation:none}}
-</style>
 </head>
 <body>
   <!-- 开屏加载动画 -->
-  <div class="splash" id="splash" style="background:#fff;">
+  <div class="splash" id="splash">
     <div class="splash-box" id="splash-box">
-      <div class="ml-wrap">
-        <div class="ml-name">Mochi</div>
-        <div class="ml-sub">正在准备你的字卡…</div>
-        <div class="ml-bar"><div class="ml-fill" id="ml-fill"></div></div>
-        <div class="ml-pct" id="ml-pct">0%</div>
-        <div class="ml-dots"><i></i><i></i><i></i></div>
+      <!-- v8.29 #973（用户 2026-09-21 直派「开屏顶部最显眼还需要标红提醒」，并把文案改写定稿为：「网站本质只是工具，
+           使用取决于个人，各种原因都需要适应和调整。网站内置内容非常非常多，不适用建议不使用这个网站，或给一定时间
+           适应。回复设置概率。非常多功能的时间和概率，全部都是公开的可以自己调。一些功能也可以自己设置关闭。聊天字卡
+           也可以单独关闭某个分组或关闭某个单独的字卡。【这个放最顶。】」）——
+           放置口径：.splash-box 的**首个子节点**＝开屏顶部最显眼处（整页滚动容器最顶端、在品牌卡之上，进页第一眼
+           即见，比 #793/#864 的「品牌卡内署名行下」更靠前）；红色警示形态（同 #315b 免责卡 / #793 停更公告的红）。
+           顶卡只留三句（实测 ≈250px）：顶卡加长到 740px 会把 #864「公告已精简」指引条挤出首屏滚动区（top 984 > vh 844），
+           现在 250px 版本下指引条 top=641（仍 < vh、仍在品牌卡内紧跟署名，但被底部卡片压住一截，要完整看需轻微下滑）；
+           四条可调入口的明细原先落到下方必读摘要第 2 条（#1216 起该块在两份源同批撤除，明细改由第一页目录章节承载），顶卡末句指过去。
+           静态 DOM（独立 .splash-bigwarn 类 + data-content-warn 标记，不占 data-anti-scam / data-browser-warn /
+           data-stop-update / data-about-tip 命名空间，与 clock.js 的置顶卡回填、pwa.js 的 5s 看门狗互不干扰）；
+           在线 notice.json 覆盖只改公告标题/摘要列表/章节，覆盖不到此处，故 notice.json 的 summary 同步补同口径一条
+           （两份同步：静态兜底 + 在线权威源）。口径全部指向已存在的设置入口，不新增行为：各类概率与功能时间/间隔
+           （设置 → 回复设置，0 = 不触发）、系统预设字卡逐张/分类开关与「整体概率（总档）」调 0、各项功能开关与桌面
+           隐藏池、聊天字卡分组标题右侧「整组停用」开关与逐张开关、设置页顶部搜索框。
+           v8.35 #1019（用户 2026-09-22 直派，逐字追加第 5 段）——本段原三句：①字卡回复与来电两条「高频」都可自行调整（字卡
+           回复频率＝设置 → 回复设置；来电频率＝设置 → 通话设置，两条在「功能说明」里都有行说明，末句指路因此成立）；
+           ②作者对人当面说明：他一直在帮人修的是不同手机型号的设备兼容问题（与品牌卡内停更公告里那句同口径）；③指路功能说明自行查看。
+           2026-10-16 用户直派改写第 5 段：②整句删去（作者原话「不要把功能和设计当成 bug」那半句不要了），①保留并在句内
+           补指路、末尾点明可查功能说明；同批第 2 段句尾追加「功能太多可能难度偏高」口径、clock.js 锁卡豁免说明删内部编号。
+           同日再派：第 3 段整段撤换——原「回复设置概率…全部都是公开的可以自己调，功能也可以自己设置关闭」改为
+           「聊天回复概率、写信、朋友圈，以及小功能等等很多功能是可以自己调概率或时间」（问卷 #1559 新增第 1 题选项 3 已同口径）。
+           哨兵 #1019a/#1019b 同批合法重锚到新文案（同名换 needle）。只是文案：不新增行为、不改任何设置入口。
+           本注释刻意不逐字复述第 5 段——HTML 注释会被合进产物，逐字复述会让 build.mjs 的 #1019a/#1019b 哨兵变成哑哨兵
+           （段落被删也照样命中）。
+           几何实测（390×844）：顶卡 252→357px（限 420px）、#864 指引条 top 607→712（vh 844，仍在首屏内），S5/S6
+           两条跨批边界断言照旧通过，故不压缩字号/间距。 -->
+      <!-- v8.35 #1046（用户 2026-09-22 直派，逐字追加第 6 段，同 #1019 追加法）：本段两句——①重申本卡首段的工具属性
+           口径（效果因人而异）；②对「一项设置都没自己动过就报不好用/混乱」的统一当面答复＝开屏文案已提示并强调过、
+           应按个人使用完成自行设置（可调入口即本卡第 3/4 段与第一页目录里的对应章节；#1216 起必读摘要块已撤除。不新增行为、不改任何设置入口）。
+           本注释刻意不逐字复述该段——HTML 注释会合进产物，逐字复述会让 build.mjs 的 #1046a/#1046b 哨兵变哑哨兵。
+           几何实测（390×844）：不加收紧时卡高 357→495px 会把 #864 指引条挤出首屏（top 885 > vh 844，S6 与 about-tip
+           脚本 B6 双红），同批把顶卡行距 1.8→1.6、段间距/内边距/下边距微收（字号 12.5px、颜色、六段内容一字不动），
+           收紧后顶卡 437px、指引条 top 823（vh 844，仍在首屏、余量 21px）；verify-973 S5 上限 420→470，S6 不变仍硬。 -->
+      <div class="splash-bigwarn" data-content-warn="1">
+        <div class="splash-bigwarn-t">使用前必看 · 本站内容非常多，不适用建议不使用本站</div>
+        <p><strong>网站本质只是工具，使用效果取决于个人使用和个人理解</strong>，各种原因都需要适应和调整。</p>
+        <p><strong>网站内置内容非常非常多，需给一定时间适应和根据个人使用习惯调整</strong>，或不适用建议不使用这个网站，确实功能太多可能难度偏高。</p>
+        <p><strong>聊天回复概率、写信、朋友圈，以及小功能等等很多功能是可以自己调概率或时间</strong>。</p>
+        <p><strong>聊天字卡也可以单独关闭某个分组或关闭某个单独的字卡。</strong>默认聊天字卡的词典字卡太多，不适用建议关闭。</p>
+        <p><strong>字卡回复高频和通话高频都可以自行调整</strong>，可自行在功能说明里查看详细。</p>
+        <p><strong>这个字卡网站本质只是工具，好不好用取决于个人。</strong>如果说任何设置都没有自己调整，说不好用，混乱的问题，开屏里已经提示和强调过了需按个人使用自行设置。</p>
+      </div>
+      <!-- v8.29 #976（用户 2026-09-21 直派「开屏里的颜色太乱，内容也很乱，怎么优化一下？」＋两条约束：
+           「不要删除我的内容」「必读卡挪到品牌卡前」）——
+           必读卡整组前移到品牌卡之前：原先 7 张必读卡被切成两半（2 张在品牌卡内、5 张在公告卡内），中间隔着
+           logo / 标题 / 署名 / 原作信息，读者要在两个容器之间来回建立「这些都是必读卡」的语义。本批把 7 张卡
+           逐字节原样搬进本容器，只改位置与配色，不删任何卡片 / 句子 / 加粗（「一字未删」由 verify 的改前文本快照断言钉死）。
+           组内顺序：防倒卖 → 停更公告 → 公告已精简 → 使用前提 → 免责声明 → 系统内置字卡锁
+           （2026-10-01 起原「安卓浏览器」「iPhone 装主屏幕」两卡收进公告目录第 4/5 章，组内 8 张→6 张）。
+           配色口径（用户 2026-09-21 选定「顶卡 + 免责声明保留红」）：红＝使用红线（本组内只有免责声明，另一处在
+           组外的 #973 顶卡）、橙＝须知/提醒（停更公告、公告已精简）、琥珀＝需要你操作（系统内置字卡锁，
+           带输入密码按钮）、灰＝陈述（防倒卖、使用前提）；原先的蓝色（使用前提）取消，全站强调色由 6 种收到 4 种。
+           静态 DOM：不占 data-anti-scam / data-browser-warn / data-stop-update / data-about-tip 命名空间；
+           防倒卖回填（clock.js ensureBar / ensureBulletin）与 5s 看门狗（pwa.js）的插入锚点同批改到本容器
+           （查找仍按整个开屏范围，老副本没有本容器时回退 #splash-notice，二传副本照常被兜住）。 -->
+      <div class="splash-mustread" id="splash-mustread">
+        <div class="splash-alert" data-anti-scam="1">
+          <div class="splash-alert-t">免费 · 署名 · 防倒卖</div>
+          <p><strong>本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong></p>
+          <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不常看抖音，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
+          <p><strong>搬运、二传本站链接到公开平台（如小红书、抖音等）时，必须标注作者署名：小红书 @言序（1842523578）</strong></p>
+          <p>仅分享网站聊天记录、不涉及搬运字卡链接的随意。禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。</p>
+        </div>
+        <!-- v3.26.x #864（用户 2026-09-19 直派「开屏显眼的地方，顶部需要说明：公告内容已缩减，原公告内容的
+             很多使用说明已移动至【设置】的【关于】里」）——夹在品牌卡署名行与停更公告之间＝开屏第一屏第一眼
+             可见（同 #793 的放置口径）；静态 DOM（data-about-tip 标记，不占 data-anti-scam / data-browser-warn /
+             data-stop-update 命名空间，与 clock.js / pwa.js 看门狗的认领与重建互不干扰）。指向的内容
+             （#792 写进「设置 → 关于」的「数据与存储（重要）」「常见问题」「使用说明」）已在位，本批只补开屏侧
+             的入口说明，不改公告正文与公告卡（在线 notice.json 覆盖只改公告列表，覆盖不到此处） -->
+        <div class="splash-abouttip" data-about-tip="1">
+          <p><strong>公告已精简：原公告里的大量使用说明已移到【设置 → 关于】</strong>（数据与存储 / 常见问题 / 使用说明）。有问题先去那里找答案即可。</p>
+        </div>
+        <!-- 2026-10-01（作者直派「必读卡片还缺少提醒备份数据的…帮我补全」）：备份提醒卡——琥珀＝#976 定的
+             「需要你操作」族（与系统内置字卡锁同色）；纯静态 DOM（data-backup-warn 标记，不占 data-anti-scam /
+             data-stop-update / data-about-tip / data-store-split 命名空间，与 clock.js 回填、pwa.js 5s 看门狗互不干扰）；
+             口径与 设置 → 关于「数据与存储（重要）」「减少数据被手机清掉的几率」、下方目录第 5 章、
+             pwa.js 备份提醒顶条（#980，距上次导出超 7 天提醒一次）一致，不新增行为。 -->
+        <div class="splash-alert splash-backup" data-backup-warn="1">
+          <div class="splash-alert-t">定期导出备份 · 本地数据说没就没</div>
+          <p><strong>本站没有云存储，所有数据都只保存在这台设备的浏览器本地、不会上传到任何网络</strong>——也正因如此，被清掉就无法找回，作者也帮不了你恢复。iOS Safari 连续 7 天没打开本站会自动清空全部本地数据（Apple 隐私策略）；安卓没有这条规则，但手机存储紧张、清理软件一键优化时同样会清掉网页数据。</p>
+          <p><strong>唯一可靠的防线＝定期「导出数据」备份：</strong>设置 → 通用 →「导出数据」，导出的文件多处留存（文件 App / 云盘 / 微信收藏各留一份）；换设备或数据丢失后，同页「导入数据」恢复。iPhone / iPad 用户请先把本站「添加到主屏幕」再用（做法见下方目录第 5 章）。</p>
+        </div>
+        <!-- 2026-10-01（作者直派「浏览器和桌面快捷方式的数据不互通相关的说明…帮我补全」）：数据不互通卡——
+             橙＝#976 定的「须知/提醒」族（与停更公告同色）；纯静态 DOM（data-store-split 标记，不占
+             data-anti-scam / data-backup-warn 等命名空间）；口径与下方目录第 7 章「关于浏览器使用与桌面快捷方式」一致。 -->
+        <div class="splash-alert splash-storesplit" data-store-split="1">
+          <div class="splash-alert-t">数据不互通 · 浏览器和桌面快捷方式是两套存储</div>
+          <p>用<strong>浏览器直接打开</strong>本站，和「添加到主屏幕 / 安装应用」后<strong>从桌面图标进入</strong>，是两种使用方式、两套独立存储（都在你设备本地——本站没有云存储，数据不会上传到任何网络），两边数据互不相通：换用法前先在 设置 → 通用 →「导出数据」备份，到新用法里再「导入数据」恢复。</p>
+          <p><strong>两处不能同时打开使用</strong>，会导致两边数据不统一。</p>
+        </div>
+        <!-- v3.26.x #793：停更公告横幅——2026年9月底后永久停更＋停更后设备兼容 bug 不再代调（用户 2026-09-18 直派
+             「开屏第一页显眼的地方新增」）。放品牌卡署名行下方＝开屏第一屏必见（#864 的公告指引条插在其上，
+             两条同在第一屏）；红色警示形态（同 #315b 免责卡红）；
+             静态 DOM（data-stop-update 标记，不占 data-anti-scam / data-browser-warn 命名空间，与 clock.js / pwa.js
+             看门狗的认领与重建互不干扰）。#792 批已把「2026.9.30 完结永久停更」写进设置→关于，此处为开屏侧同步口径 -->
+        <div class="splash-stopupdate" data-stop-update="1">
+          <div class="splash-stopupdate-t">停更公告 · 2026年9月底后永久停更</div>
+          <p><strong>mochi字卡 2026年9月底后永久停更。</strong>停更后不会再帮人调不同人的设备型号的兼容 bug。</p>
+          <p>作者自己的手机使用无异常情况；其他人的设备上的问题，不报出来作者手机碰不到、也无法发现——不同手机型号的情况就是不同。</p>
+          <p><strong>永久停更以后，建议自己拿代码给 AI 调</strong>（代码已在 GitHub 完全开源，可自行下载修改）。</p>
+        </div>
+        <!-- 2026-10-01 用户直派「以上内容可以收进【Mochi字卡 · 开屏说明】新增目录放进去」：原「安卓浏览器提醒」
+             与「iPhone / iPad 添加到主屏幕」两张必读卡整卡撤除，内容改由下方公告目录第 4 章（浏览器兼容提醒·安卓）
+             与第 5 章（iPhone 用户必读·添加到主屏幕）承载（章节正文为原两卡的超集，在线 notice.json 与本文件
+             静态兜底两份同标题同口径，目录可逐章跳转）；配套：两卡专属样式与四支哨针同批退役（FIX-REGRESSION 有案），
+             公告目录两章的在位改由 verify-973 S24c/d／S15c 与 #1216g/#1216i 继续守。 -->
+        <!-- v3.26.x：使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
+             #611 后合并原「不是小手机 · 禁止扩圈」卡（去重，两卡同一主题）；静态 DOM（tag 'w' 非数字，
+             与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处 -->
+        <div class="splash-alert splash-what" data-anti-scam="w">
+          <div class="splash-alert-t">使用前提 · 先认清本站是什么</div>
+          <p><strong>本站是字卡传讯，纯代码运行，没有任何 AI，不是小手机。</strong>请至少了解什么是字卡传讯、使用过其他传讯网站，再进行使用。</p>
+          <p><strong>本站不是小手机，请勿带 #小手机 等相关 tag 发帖引流。</strong>作者做这个站只是为了方便字卡传讯交流，不是为了扩圈；现在使用的人越来越多，请大家保持基本的礼貌与规则，不要扩圈、刷屏引流，谢谢。</p>
+        </div>
+        <!-- v3.27.x #315：免责声明置顶卡——未成年人禁止使用 + 字卡为随机代码自担责任；静态 DOM（tag 'd' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处；#315b 红色警示形态置顶首位；#315c 细化为四条：18 周岁红线+点击即同意 / 虚构娱乐与真实关系边界+心理援助热线 / 后果自担与作者免责 / 纯本地数据与备份责任
+             #1453（2026-09-29 作者直派「免责声明需要也在设置的【关于】里显示」）：① 追加三条免责——导入素材版权 / 非原版（二传二改版）责任归属 / 停更后不承诺可用性。**原四条一字未动**（只增不改），故 verify-976 的 S8「无删减」判据仍绿、verify-1024 钉的 18 周岁原句仍在；② 补 id="splash-disclaimer" 当锚点，供勾选行「查看免责声明」（clock.js 接线）等落点跳转。
+             #1459（2026-09-29 作者直派「按 B+C 方案修改并同步两源」）：在 #1453 的七条上做措辞修正 + 条款补充（共九条）——B① 「作者不承担任何直接或间接责任」前加「在法律法规允许的最大范围内」；B② 「不具备任何真实、法律、医疗、心理或情感效力」改「不构成任何形式的承诺、建议或专业意见，不产生任何法律效力」；B③ 「本页全部说明」改「《免责声明》全文」；C① 补紧急情形指引（110／120／就近急诊）；C② 补「无账号体系、不上传、不收集、不分享」；C③ 停更条与事实对表（自 2026-09-30 起停止发布新版本，停更≠下线）；C④ 原版条补「官方入口以署名卡公布的作者账号所发链接为准」并点名二改版可能自加云存储；C⑤ 补禁止骚扰／诈骗等违法用途 + 「本声明最后更新」日期。
+             #1475（2026-09-30 作者直派「补存证＋标准条款＋第 3 条强化为自己为自己的使用负责、作者不承担任何责任」）：首段补「勾选确认时本地记录确认时间与声明版本（不上传、不属于数据收集）」披露；原第 3 条改写为「自愿使用＋后果由使用者本人自行承担、自行负责＋完全免费无对价＋在法律法规允许的最大范围内、无论基于何种原因（含违约侵权）均不承担任何直接间接附带或后果性责任」（「在法律法规允许的最大范围内」这一限定形态保留＝绝对化「概不负责」反而易被整体认定无效）；新增第 4 条「按『现状』与『当前可用性』提供、不作明示或默示保证＋第三方托管（GitHub Pages）等非作者可控原因免责」；新增第 10 条可分割性（任何条款被认定无效不影响其余）；原第 1~8 条中 4~8 顺延为 5~9，条数 9→11（含末条日期）；最后更新 2026-09-29→2026-09-30；clock.js 同意记录同步改存「时间戳＋版本」JSON、声明改版后旧确认自动失效＝重新勾选一次。
+             #1482（2026-09-30 作者选定写法 A）：第 9 条「停止发布新版本」改「停止功能更新，此后仅可能发布必要的声明修正」——消除「停更声明 vs 实际仍在发修正批」的自相矛盾；三处落点（本卡/设置→关于/README）同批。
+             #1569（2026-10-16 作者直派「免责声明写那么多有的没的，优化一下」并按作者确认的精简草案落地）：12 段精简为 9 段——把原第 3/4/10 条并成一条（自愿使用＋后果自担＋最大范围内免责 ＋ 按现状无担保＋第三方托管 ＋ 可分割性）、把原第 6/8 条并成一条（导入素材版权自负 ＋ 禁止违法用途）、日期行去掉条号独立成段；语义一字未减（逐条要点全在），所有历史锚句保持原样（故 #315c/#1459a~e/#1475c 等哨兵仍绿），仅段数与编号变化；三处站内落点（本卡 / 设置→关于 / 使用说明第 15 章摘要）与 README.md 同批同步。
+             ⚠ 本卡与 设置 → 关于 →「隐私与法律」的 #about-disclaimer-sub、使用说明第 15 章「许可与免责」是同一口径的三处站内落点；改文案必须与仓库根 README.md「免责声明（重要）」两源同批同步（README 末条明写「同步展示于站点开屏页」） -->
+        <div class="splash-alert splash-disclaimer" data-anti-scam="d" id="splash-disclaimer">
+          <div class="splash-alert-t">免责声明</div>
+          <p><strong>本站禁止未满 18 周岁的未成年人使用。点击进入即视为你确认已年满 18 周岁，并已阅读、理解并同意《免责声明》全文。</strong>勾选确认时，本站会在你自己的设备浏览器本地记录确认时间与本声明版本（仅用于确认你已阅读并同意本声明，不会上传，不属于数据收集）。</p>
+          <p>1. 本站所有字卡回复、TA 的消息与互动均为<strong>预先编写的随机代码随机触发，纯属虚构娱乐</strong>，不代表任何真实人物的观点、承诺或情感，<strong>不构成任何形式的承诺、建议或专业意见，不产生任何法律效力。</strong></p>
+          <p>2. <strong>本站的虚拟互动不能替代、也不应替代真实的人际交往、恋爱关系、心理疏导或专业帮助。</strong>如果你正处于情绪低落、焦虑或其他心理困境，请及时向家人朋友求助，或前往正规医疗机构、心理援助热线（全国心理援助热线：12356）寻求专业支持；<strong>如遇紧急或危险情形，请立即拨打 110（报警）或 120（急救），或前往就近医院急诊。</strong></p>
+          <p>3. <strong>本站仅供自愿使用：请在充分理解本声明内容、自愿承担全部使用风险的前提下使用本站。</strong>使用本站产生的一切后果（包括但不限于情绪影响、时间消耗、数据丢失、设备问题、纠纷与损失）均<strong>由使用者本人自行承担、自行负责</strong>；未成年人违规使用的，相关责任由其本人及监护人承担。本站完全免费，作者未因你的使用收取任何费用或获取任何对价；<strong>在法律法规允许的最大范围内，无论基于何种原因或理由（包括但不限于违约、侵权或其他事由），作者均不承担任何直接、间接、附带或后果性的责任。</strong><strong>本站按「现状」与「当前可用性」提供，不作任何形式的明示或默示保证，包括但不限于持续可用、不中断、无错误、无遗漏、适用于特定目的等。</strong>因第三方托管服务（如 GitHub Pages）、网络、设备、系统或浏览器等非作者可控原因导致的无法访问、显示异常或损失，作者亦不承担责任。本声明任何条款被认定全部或部分无效的，不影响其余条款的效力，其余条款继续有效。</p>
+          <p>4. 本站无后端服务器、无账号体系，所有数据仅保存在你自己的设备浏览器中，<strong>不会上传至任何网络</strong>，作者不收集、不读取、不对外分享你的任何内容。清除浏览器数据、卸载、换机、iOS 系统回收存储均会导致数据丢失，<strong>请务必定期导出备份</strong>；作者无法找回任何丢失数据。</p>
+          <p>5. 你自行导入或保存的音乐、图片、表情、字卡等素材，<strong>其版权与合法性由你本人负责</strong>，请勿导入或分享侵权、违法的内容；由此产生的纠纷与责任由你承担。禁止利用本站从事任何违法违规活动，包括但不限于骚扰、辱骂、诈骗、传播违法信息等，违者自行承担全部法律责任。</p>
+          <p>6. 本站指作者本人发布与部署的原版（见下方署名卡），<strong>官方入口以署名卡公布的作者账号所发链接为准</strong>。开放二传二改后产生的其他版本<strong>并非原版，其内容、改动（可能自行添加云存储等联网功能）与运营均与作者无关</strong>；从非原版入口使用所产生的一切后果，作者不承担责任。</p>
+          <p>7. 本站已于 2026-09-30 起停止功能更新（永久停更），此后仅可能发布必要的声明修正。<strong>停更不等于下线</strong>：已部署的页面与相关链接可能继续可访问，但作者不再维护更新，<strong>不承诺本站与相关链接的持续可用、可访问或不中断</strong>，也不承诺任何内容永不失效。</p>
+          <p>本免责声明最后更新：2026-09-30。</p>
+        </div>
+        <!-- v3.27.x #319：防未成年人·系统内置字卡锁——默认锁定全部系统预设字卡，输对二级验证密码才放行；
+             纯静态卡骨架，状态文案/按钮/交互由 clock.js 接线渲染（card-lock.js 提供闸门），在线 notice.json 不影响此处。
+             #998（2026-09-21 用户直派「关于2级密码和暗号需要提醒。时间就在开屏第一页的某个目录，不要看第二页」）：
+             解锁提示改成明确指路——答案在第一页公告的章节里（第一页顶部「目录」可逐章翻），并写明不是第二页「进入前 · 作者必读公告」上的两个日期；
+             口径与 clock.js 的锁定态 tip / 解锁弹窗 / 进入后提醒弹窗一致（#1216 起开屏必读摘要块已撤除，指路走第一页目录）-->
+        <div class="splash-alert splash-cardlock" data-anti-scam="l" id="splash-cardlock">
+          <div class="splash-alert-t">防未成年人 · 系统内置字卡已锁定</div>
+          <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已年满 18 周岁，可输入二级验证密码解锁使用。锁定不影响：聊天情绪字卡、TA 的心情、聊天回应字卡、你自建的字卡均照常可用。密码非常简单，答案就在开屏第一页的章节目录里：点开第一页顶部的「目录」，逐章翻一下就能找到（第一页第一章与第二页最顶那张时间线卡都写着——日期就是字面意思，不是隐藏答案）。解锁用的密码与开屏问答页的「暗号」是同一个（同一串 6 位数字，两个入口都用它）；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。继续使用即视为你确认已年满 18 周岁。</p>
+          <div class="cardlock-actions" id="splash-cardlock-actions"></div>
+        </div>
+      </div>
+      <!-- v3.8.y：顶部品牌区统一装进一个卡片框（logo/标题/署名/原作信息成一个整体，更端庄精致） -->
+      <div class="splash-brandcard">
+        <div class="splash-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>
+        </div>
+        <div class="splash-title">mochi 摸鱼字卡</div>
+        <!-- v3.8.y：署名（小红书）移到顶部，紧跟标题下方 -->
+        <div class="splash-brand">小红书@言序（1842523578） · 抖音@言序（58334080131）</div>
+        <!-- 设计作者说明：设计与开发均由作者一个人独立完成，紧跟署名下方 -->
+        <div class="splash-source">
+          <div class="splash-source-line">设计与开发均由作者@言序　一个人独立完成。</div>
+        </div>
+        <!-- 2026-10-01（作者直派）：原「Mochi 名字澄清」独块整块撤除，缩短后的一句并入下方「许可 · 署名 · 灵感来源」块
+             重排——澄清句紧贴借鉴来源行＝「不是 milk 二改、但借鉴了 milk」在同一处说清；#1503 的显眼位要求由合并后整块继承。 -->
+        <!-- v8.56 #1503（作者直派「许可 署名 灵感来源应该也放在显眼的地方啊，和 mochi 名字解释的一起」）：
+             原公告「许可 · 署名 · 灵感来源」章整章下架，要点搬到品牌卡。静态 DOM：在线 notice.json 只覆盖公告列表、
+             覆盖不到品牌卡，故此处即开屏侧唯一落点；改文案须与 设置 → 关于（功能介绍与许可段）及 README 保持同口径。 -->
+        <div class="splash-source splash-license">
+          <!-- v8.57 #1557（作者直派「开屏的以下内容，没有设计排版啊，很丑」）：本块排版整组重做——
+               标题行改居中带左右细线、正文按「许可条款 / 灵感来源清单 / 落款」三段分组装进浅底圆角面板、
+               清单五条来源行加同款圆点标记、字号 9px→10px 并整体改左对齐。
+               ⚠ 内容零改动硬约束：全部句子逐字保留（含标点），verify-976 S8.brandcard 无删减判据与
+               #1536e / #1547a~d 哨兵 needle 都钉在这些句子上；本轮只加包装 div 与 class，不增删任何字符。 -->
+          <div class="splash-lic-head"><strong>许可 · 署名 · 灵感来源</strong></div>
+          <div class="splash-lic-panel">
+            <div class="splash-source-line splash-lic-lead"><strong>本站不是 milk 字卡代码的二改版本，是从零开始独立编写的字卡传讯二创作品。</strong></div>
+            <div class="splash-source-line">开放<strong>二传二改</strong>，禁止商用、禁止以盈利为目的；<strong>必须保留作者署名：小红书 @言序（1842523578），禁止删除或修改</strong>；二次修改请注明原作者。</div>
+            <div class="splash-source-line splash-lic-req">二传二改四点要求：① 保留署名；② 不要转发二级验证密码（暗号）；③ 二改后要公开时，不要公开内置字卡；④ 二改可自加云存储，但请不要公开云存储。</div>
+            <div class="splash-source-line"><strong>Mochi字卡为原创独立作品（即原版）</strong>，代码已在 GitHub 完全公开、支持私人部署。</div>
+          </div>
+          <div class="splash-lic-panel splash-lic-credits">
+          <!-- v8.56 #1547（作者直派「你为什么把我的公告里灵感借鉴里的内容删减了」并给定稿原文）：#1503 把公告「许可 · 署名 · 灵感来源」章搬成品牌卡摘要时，
+               摘要只留下四个名字、把「谁借鉴了什么」压成一格——被压掉的四类＝①四位来源各自的小红书号 ②「换头像」那一条（站内唯一落点消失）
+               ③「借鉴」与「网络上已有类似想法」两层区分的领句 ④落款那句讲尊重出处的话。
+               本行起按作者原文逐字恢复清单（一字不增删，只按原来的每句一行排版）；星言雏形行（#1544）归位到清单内他那句所在的次序，不再单列。
+               ⚠ 注释有意不复读清单原句：那几句同时是 #1547a~d 四针的 needle，写进注释＝删掉正文行注释仍把针喂绿＝哑哨兵。 -->
+          <div class="splash-source-line">本站并非复刻他人网站，代码均从零编写：</div>
+          <div class="splash-source-line">另外：mochi字卡部分功能的雏形，参考了7月时我做的第一个字卡——星言。</div>
+          <div class="splash-source-line">除随机回复的基础逻辑、基础框架外（灵感来源为 milk 字卡 · 小红书 @milk（2777299956）），以下功能为借鉴：</div>
+          <div class="splash-source-line splash-lic-item">帮我决定、多人决定功能：借鉴自小红书 @FelixFelicis（9416318007）</div>
+          <div class="splash-source-line splash-lic-item">公用字卡+专享字卡模式：借鉴自小红书 @默玉（8012400317）</div>
+          <!-- 2026-10-15（作者直派「在公告 灵感借鉴 里新增入站问卷灵感来源」）：入站问卷＝需正确回答问卷才会进入使用网站模式 -->
+          <div class="splash-source-line splash-lic-item">需正确回答问卷才会进入使用网站模式 @小狗咖啡猫（5435843310）</div>
+          <div class="splash-source-line">以下功能源于网络上已有的类似想法，但设计均由我独立完成：</div>
+          <div class="splash-source-line splash-lic-item">情绪字卡：源于早期网络上的类似提议（有人建议在聊天中加入情绪字卡以方便交流，小红书 @心汋是颗彩虹多宝糖（9725312970）也提过这个模式）</div>
+          <div class="splash-source-line splash-lic-item">换头像：灵感来自看到网络上有人提议小手机想要 chat 自己换头像</div>
+          <div class="splash-source-line">其余功能和 UI 均为我独立设计。</div>
+          </div>
+          <div class="splash-lic-foot">
+            <div class="splash-source-line">若使用代码或借鉴功能，必须标注灵感来源。标注来源是对创作者最基本的尊重，未标注来源的使用将视为违反本许可协议。</div>
+            <div class="splash-source-line">使用或借鉴本站功能与代码，必须标注灵感来源；开屏公告为本站内容，不可删除或修改。详见 GitHub 库与 设置 → 关于。</div>
+          </div>
+        </div>
+        <!-- v3.8.y：原作/部署信息——本人原作本人部署，使用网站 + GitHub 库（每条单行完整显示） -->
+        <div class="splash-source">
+          <div class="splash-source-line">本人原作，本人部署。</div>
+          <div class="splash-source-line">使用网站为：<span class="splash-source-url">https://ling233330-star.github.io/mochi/</span></div>
+          <div class="splash-source-line">github库为：<span class="splash-source-url">https://github.com/ling233330-star/mochi</span></div>
+        </div>
+        <!-- v3.26.x #648：原版口径澄清——只有上述使用网站是本人原作、本人部署的原版；其余非作者本人发布的版本＝开放二传二改权限后产生的二传/二改版 -->
+        <div class="splash-source">
+          <div class="splash-source-line splash-clarify">除上述使用网站（本人原作、本人部署）外，其他非作者本人发布的版本，均是因本作开放二传二改权限而产生的二传/二改版，并非本站原版，特此说明。</div>
+        </div>
+      </div>
+      <!-- v3.5.112：开屏公告（发布说明） -->
+      <!-- v3.6.x：公告内容可由 notice.json 远程覆盖（clock.js 拉取），此处写死内容为离线兜底 -->
+      <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
+           全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
+      <div class="splash-notice" id="splash-notice">
+        <!-- v3.26.x #613 / #621：免费 · 署名 · 防倒卖 合并置顶卡（原「防骗提醒」卡 + 「转载署名·严禁倒卖」卡
+             并成一张，用户要求「并成一张」）——静态 DOM（tag '1'），在线 notice.json 覆盖只改公告列表，不影响此处；
+             clock.js 运行时按官方源回填、pwa.js 5s 看门狗兜底（被删后重建插入锚点见 clock.js / pwa.js） -->
+        <div class="splash-notice-title">Mochi字卡 · 开屏说明</div>
+        <div class="splash-notice-sub">（请认真阅读）</div>
+        <!-- v3.26.x #575（用户 2026-09-16 反馈「删掉，这是错的」）：开屏这块静态「新手上路 · 3 步就能用」
+             卡整块撤除（DOM 与 .splash-onboard 样式同批删除）。不再补回——开屏只留公告/必读摘要，
+             新手引导走 onboarding.js 的弹层（首次使用的全新环境自动弹一次，可跳转、设置内可重看）。 -->
+        <div class="splash-notice-list">
+          <!-- #1216（2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）：本容器内原有的「必读摘要」整块已撤除，
+             勿复活——它复述的九条在下面三处各有权威版本：①开屏最顶的必读卡组（防倒卖／公告已精简／备份提醒／
+             数据不互通／停更／使用前提／免责声明／系统内置字卡锁；2026-10-01 起安卓浏览器／iPhone 装主屏幕两卡
+             已收进本目录第 4/5 章、备份与数据不互通两卡同日新增）；
+             ②本目录各章（含「安卓浏览器」「iPhone 装主屏幕」「数据不互通=第 7 章」等章，另把「建议都装主屏幕
+             ＋配合三点」并进 iPhone 章）；③设置 → 关于（数据与存储／常见问题／使用说明）。在线源 notice.json 的 summary
+             同批改空（clock.js 判 length 才建块，空数组＝不渲染）。被这次删除摘掉的七支针一律转成删除型重锚，不退役。 -->
+          <div class="splash-sec-wrap">
+            <!-- #1024（2026-09-22 用户直派，原文逐字）——开屏第一页公告的首个章节＝顶部最显眼的一章；
+                 在线权威源在同名章节（src/pwa/notice.json sections[0]），两份逐字一致，
+                 改文案必须两份同改（联网用户看在线源、断网/弱网看这里） -->
+            <p class="splash-sec">1、网站公告 · 关于转载与二次创作</p>
+            <p class="splash-item">本网站所有字卡内容遵循「开放二传二改」原则，欢迎分享与再创作。但请遵守以下要求：</p>
+            <p class="splash-bullet">转载或二传链接，必须保留作者署名（言序）；</p>
+            <p class="splash-bullet">二次创作作品请注明「基于言序作品修改」；</p>
+            <p class="splash-bullet">禁止抹除署名、伪装原创、或将内容用于恶意引流；</p>
+            <p class="splash-bullet">仅分享网站聊天记录、不涉及搬运字卡的，只需标注 mochi 字卡 tag 即可。</p>
+            <p class="splash-item splash-hl">未经署名转载视为侵权，作者保留追究权利。</p>
+            <p class="splash-item">另外有件事想说，也请大家注意：mochi 一直支持正常地使用我的代码去二改、借鉴，或者单独复刻某个功能，只要标注来源即可。</p>
+            <p class="splash-item">因为我的代码一直都是公开的，拿去喂 AI 跑一跑、换个 UI 就能复刻里面的功能，门槛实在是太低了。所以希望大家尊重我的劳动成果，严禁以下行为：</p>
+            <p class="splash-bullet">照搬大量的功能和机制，连功能内置的文字都原样复制粘贴，没有任何修改和创新；</p>
+            <p class="splash-bullet">纯靠复刻代码拼凑成一个新网站，声明与 mochi 原网站毫无关系；</p>
+            <p class="splash-bullet">用了代码却说「只是参考借鉴，没用过我的任何代码和文案」；</p>
+            <p class="splash-bullet">甚至完全不标注来源。</p>
+            <p class="splash-item splash-hl">现在借鉴和二改都是随意开放的，我一直都说可以用、也没有管过。但如果出现以上违规行为，我将停止公开代码，收回供人参考的代码以及后续的二改权限。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">2、停更公告 · 2026年9月底后永久停更</p>
+            <p class="splash-item">mochi字卡 2026年9月底后永久停更。停更后不会再帮人调不同人的设备型号的兼容 bug。</p>
+            <p class="splash-item">作者自己的手机使用无异常情况；其他人的设备上的问题，不报出来作者手机碰不到、也无法发现——不同手机型号的情况就是不同。</p>
+            <p class="splash-item splash-hl">永久停更以后，建议自己拿代码给 AI 调（代码已在 GitHub 完全开源，可自行下载修改）。</p>
+            <p class="splash-bullet">注意：AI 的回答无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">3、公告已精简 · 大量使用说明已移到「设置 → 关于」</p>
+            <p class="splash-item">原公告里的大量使用说明已移到【设置 → 关于】（数据与存储 / 常见问题 / 使用说明）。有问题先去那里找答案即可。</p>
+            <p class="splash-bullet">原公告里大部分解答过的问题已移动至【设置 → 关于】：数据丢失 / 浏览器自动清数据 / 存储权限 / 无痕模式 / 备份恢复 / 会不会做成 App / 全屏失效等。</p>
+            <p class="splash-bullet">打开路径：设置 → 关于 →「数据与存储（重要）」「常见问题」「使用说明」。</p>
+            <p class="splash-bullet">「会不会做成 App」：不会做。原因：网站功能非常多——如果功能少还好说，功能太多的情况下，做成 App 可能出现的 Bug 只会更多，而且和设备、浏览器一样存在适配问题：不同手机的屏幕、系统、性能都不一样，要做到所有手机都适配，Bug 可能需要全部重写一遍。更何况本站已永久停更，不会再有开发，我也没有这种精力和金钱。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">4、浏览器兼容提醒（安卓用户必读）</p>
+            <p class="splash-item">安卓手机不建议使用手机自带的浏览器打开本站（小米 / 华为 / OPPO / vivo / 荣耀 / 夸克等），自带浏览器兼容问题多。</p>
+            <p class="splash-bullet">已实测出现的兼容问题：点「导入 / 添加头像」等按钮没反应（系统相册弹不出来）、页面显示错位、卡顿等；同一部手机换 Chrome 或 Edge 后即恢复正常。</p>
+            <p class="splash-bullet">建议做法（二选一）：① 用 Chrome 或 Edge 浏览器打开本站；② 在浏览器菜单里选「添加到主屏幕 / 安装应用」，之后从桌面图标进入。</p>
+            <p class="splash-item">若某个功能点了没反应，先换 Chrome/Edge 试一次——多数「点了没反应」都是自带浏览器兼容问题，不是网站坏了。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">5、iPhone 用户必读：把本站「添加到主屏幕」再用（数据会一直被清）</p>
+            <p class="splash-item">iPhone 上「数据总是丢」多半不是网站坏了，是系统在清网页数据：①Safari 会在连续 7 天没打开本站后自动清空它的全部本地数据（Apple 的隐私策略 ITP，任何网站都躲不过）；②手机存储紧张、清理软件一键优化、无痕模式、系统升级、换机换浏览器时，也会把网页数据一起清掉。</p>
+            <p class="splash-bullet">把本站「添加到主屏幕」、之后从桌面图标打开，能明显改善这一点：主屏幕应用不计入那条 7 天规则，也不跟一堆标签页抢内存（无浏览器栏、更接近 App 的用法）。做法：用 Safari 打开本站 → 点底部中间的「分享」按钮（方框加箭头）→「添加到主屏幕」→ 再从手机桌面点新图标进入。</p>
+            <p class="splash-bullet">注意：主屏幕应用与 Safari 是两套独立存储，切过去等于换个地方存数据。请按顺序做：①先在 Safari 里 设置 → 通用 →「导出数据」导一份完整备份；②再「添加到主屏幕」；③从桌面图标打开，走 设置 → 通用 →「导入数据」恢复；④以后平时都从桌面图标用。</p>
+            <p class="splash-bullet">不管哪种手机、哪种浏览器，本地数据都可能被系统清掉：定期「导出数据」备份才是唯一可靠的防线（导出的文件别只留一个地方：文件 App / 云盘 / 微信收藏各留一份）。</p>
+            <p class="splash-bullet">iPhone 上用 Edge / Chrome 的「添加到主屏幕」只会生成一个快捷方式，打开仍是带工具栏的浏览器页面，拿不到独立应用与那条 7 天豁免——请用 Safari 添加。</p>
+            <p class="splash-bullet">不只 iPhone：建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮 → 添加到主屏幕，之后从桌面图标打开）——浏览器里直接打开的网页是手机清数据时的头号受害者，数据说没就没；从桌面图标用耐用得多。</p>
+            <p class="splash-bullet">再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。</p>
+            <p class="splash-bullet">详见 设置 → 关于 →「减少数据被手机清掉的几率」。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">6、当前状态</p>
+            <!-- #1000（2026-09-21 用户直派）：本行三个日期改 4 位写法（开搓／内测起止／完全公开），
+                 与「把生日日期原样写成 4 位数」的密码口径对齐——这一章正是密码提示所指的答案位置 -->
+            <p class="splash-item">0812 开搓，0815~0829 内测，谢谢参与内测的各位；Mochi字卡 0829 已完全公开，可二传二改。</p>
+            <p class="splash-item">网站与我更新修复问题是同步的：边修边部署，修一天部署一天；开屏有最新部署时间。</p>
+            <p class="splash-item">如果浏览器还没进入新版，可以关掉浏览器再打开，多试几次流量刷新，或者过一段时间再打开。</p>
+          </div>
+                    <div class="splash-sec-wrap">
+            <p class="splash-sec">7、关于浏览器使用与桌面快捷方式</p>
+            <p class="splash-sub">数据不互通说明：</p>
+            <p class="splash-item">手机浏览器打开网站使用，和把网站安装快捷方式到手机桌面使用，是两种使用方式。</p>
+            <p class="splash-item">浏览器限制有可能会自行隔离数据，导致两边数据不互通——之前使用的数据，只能自己手动导入。</p>
+            <p class="splash-sub">重要提醒：</p>
+            <p class="splash-item splash-hl">浏览器打开网站 和 安装到桌面的快捷方式，不能同时打开使用，会导致两边数据不统一。</p>
+          </div>
+                    <div class="splash-sec-wrap">
+            <p class="splash-sec">8、关于“电子网站会连上鬼”的传闻</p>
+            <p class="splash-bullet"><b>本站没有灵异机制。</b> 本站本质只是代码随机概率运行触发回复，呈现的内容仅为系统内置字卡或您自己添加的字卡。代码已在 GitHub 完全公开，任何人都可查看，不存在任何超自然成分。（建议：请避免添加带有负面暗示的字卡，以免在随机触发时给自己带来不必要的心理负担。）</p>
+            <p class="splash-bullet"><b>字卡只是工具，体验因人而异。</b> 对于无根据的传闻和造谣，我们不予置评。但必须说明：人在高度专注、心理暗示或情绪紧张时，很容易产生主观上的“错觉”或“巧合感”。许多所谓“吓人”的说法，往往源于此。</p>
+            <p class="splash-sub">如果您真的遇到了无法解释的情况，或者感到恐惧：</p>
+            <p class="splash-bullet">1. <b>请立刻停止使用。</b> 这是最重要的。无论真假，您的心理健康和安全感是第一位的。</p>
+            <p class="splash-bullet">2. <b>不要过度联想。</b> 很多时候，越害怕就越容易把随机发生的事情和字卡联系起来。</p>
+            <p class="splash-bullet">3. <b>寻求现实帮助。</b> 如果这种恐惧感严重影响了您的正常生活，建议您暂时远离这类工具，多和身边信任的朋友、家人聊聊，或者寻求专业心理人士的帮助。</p>
+            <p class="splash-bullet">不同人的说法可能不一样，有些可能是恶作剧，有些无法证实真假。请以您自身的感受为准，如果感到不适，随时退出即可。</p>
+          </div>
+                    <div class="splash-sec-wrap">
+            <p class="splash-sec">9、屏幕适配微调（屏幕错位自己调）</p>
+            <p class="splash-item">新增「屏幕适配微调」：不同设备屏幕错位不用再等修，自己在面板里调——设置页 → 工具 →「屏幕适配微调」（桌面长按空白→装修模式、聊天设置→美化 也各有一个入口，三处开的是同一个面板）。面板顶部写着「正在调：桌面 / 聊天」，旁边两枚页签反色高亮的那一枚＝你现在正在调的页面，点另一枚就切过去看现场（面板自动收成小胶囊）。</p>
+            <p class="splash-item">滑杆按「哪一页生效」分三组：两个页面通用的位置轴（顶部 / 底部 / 页面高度 / 整体位移 / 左右安全边）、只影响桌面页的「桌面图标区」、只影响聊天与设置里正文文字的「文字大小」；哪一组标着「你正在这一页」，拖那一组就对了。</p>
+            <p class="splash-item">各轴各管一种错位：顶部内容被状态栏遮挡/离太远→「顶部」；底部导航栏被手势条裁掉/悬空→「底部」；页面底部留白/内容超出→「页面高度」；全屏时桌面图标按钮整体偏上→「桌面图标区」；整页偏上/偏下导致顶部或底部被遮挡→「整体位移」；曲面屏内容贴到屏幕弧边→「左右安全边」；正文文字太小→「文字大小」。</p>
+            <p class="splash-item">用法：拖动滑杆边看边调、当场生效，双击滑杆回默认 0；面板挡住画面时按住标题行上下拖即可把它挪开，点「收起」变一枚小胶囊（点一下展开、也能拖走让位）；「全部恢复默认」一键归零；每台设备各自调、互不影响、不随联系人走。</p>
+            <p class="splash-item">建议先跑 设置 → 信息诊断 →「屏幕适配诊断」 看差多少像素，再来填对应偏移；聊天页内还可配合聊天设置→美化 的「顶栏/底栏位置」滑杆单独微调。</p>
+          </div>
+                    <div class="splash-sec-wrap">
+            <p class="splash-sec">10、关于 TA 发消息太多（「回复条数」为什么管不住，以及新增的总量限流）</p>
+            <p class="splash-bullet"><b>「回复条数最少/最多」＝你每发 1 条消息，TA 跟着回你几条</b>，它只管这一件事，<b>不是 TA 一天最多发几条</b>。所以把它调成 1~2 之后，你还是可能收到很多条。</p>
+            <p class="splash-bullet"><b>这几类不占「回复条数」的名额、会额外多发</b>：词典拼字的「多回复逐卡连发」（默认不受条数限制）、撤回后补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（连发几条由「主动发送 → 发送条数」单独控制）。位置都在 聊天 → 更多 → 回复设置 → 聊天 →「回复与主动」。</p>
+            <p class="splash-bullet"><b>「总量限流」（同面板下方，默认关闭）</b>：打开后，任意「限流窗口」这段时间里 TA 最多发「窗口内最多条数」条，超出的直接不再发出，窗口滑过去自动恢复。<b>上面那些额外多发的类型在这里全部一起计数、一起拦</b>——已读回执、你当刻操作引发的记录（决定结果、游戏战绩、存钱罐结算、红包领取退回）、TA 在身边的换位播报（自动换位、【感知一下】催的那一发与你手动发的位置卡）不占额度也不会被拦；额度满时你刚说的那句话仍<b>保底换来 1 条回应</b>，不会只剩一个「已读」。两处例外请知悉：限流只管<b>你当前打开的这个联系人</b>（其他桌面的 TA 走跨桌面补投，不占这份额度）；经期关心、音乐互动的系统台词<b>照常计入额度、也会被拦</b>。</p>
+            <p class="splash-bullet"><b>怎么配</b>：嫌刷屏就开限流、窗口 5 分钟／上限 15 条起步（还是多就把上限往下调、窗口往上调）；只想让每句话的回应变短，就把「回复条数」两项都调成 1 并关掉「多字卡回复」。别把窗口拉到 60 分钟又把上限压到 1 条＝一小时只回你一句。限流按联系人独立生效，改动即时保存。</p>
+          </div>
+          <!-- #1449（2026-09-29 作者直派「公告第一页需要新增目录一条，并且二改说明里也要加这一条：没有云存储，如果二改不要公开云存储」）：
+               与在线权威源 src/pwa/notice.json 的同名章节逐字一致（联网用户看在线源、断网/弱网看这里），改文案必须两份同改；
+               同一口径的第二处落点见本页「二传二改说明」第四条与 设置 → 关于 的「二传与二改说明」卡 -->
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">11、关于云存储（本站没有云存储，二改请不要公开云存储）</p>
+            <p class="splash-item">这个网站的存储都是保存在个人设备本地的，不会上传至任何网络。</p>
+            <p class="splash-item">云存储之前有人提过，但因为这个字卡使用人数越来越多，不会考虑加了。明确来说，现在是人太多，会有各种风险（安全风险等），所以我不加。</p>
+            <p class="splash-sub">建议：</p>
+            <p class="splash-bullet"><b>停更之后可以拿代码去二改，自己加上云存储、部署私人使用，但请不要公开。</b>公开有云存储给其他人使用，因为使用网站的人太多了，可能会引来麻烦，给你我双方都带来困扰。</p>
+          </div>
+          <!-- #1500：本节此前只在在线权威源 src/pwa/notice.json、离线兜底缺章——随「目录编号统一」补齐，两源同口径 -->
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">12、关于后台通知横幅的「N 条新消息」、点进去找不到东西、以及收藏变少（iPhone 主屏幕模式报障）</p>
+            <p class="splash-bullet">横幅改口了：以前那句「你不在的时候收到 N 条新消息」把查岗、贴贴/头像申请、来信、朋友圈动态、来电全算了进去，于是出现「提示有 2 条、点进去一条也没有」。现在按类别分开报，例如「你不在的时候收到 1 条新消息 · 1 次查岗 · 1 封来信」——只有真进了聊天的才叫「新消息」，没归到类别的只写「提醒」。</p>
+            <p class="splash-bullet">点通知会把你带到这条事件真正所在的地方：先切到它归属的那个联系人桌面，来信进信箱、其余进聊天；如果点的时候页面已被系统回收，重开后也会补跳一次（只认 3 分钟内的点击）。跨桌面查岗、贴贴申请落的是那个联系人自己的桌面，以前一律停在当前桌面的聊天页，所以「点进去什么都没有」。</p>
+            <p class="splash-bullet">收藏少掉的那批：这台机器的浏览器本地存储已写满到每一次写入都失败（诊断单上那句「写入失败(QuotaExceededError)」），于是屏幕上看到的是「最后一次写得进去的旧账」，而库里那本更新的反被遮住。现在只要这一层写不进去，旧账整场都不再充当最新，一律以库为准；顺带把占着配额、库里已有副本的历史残留从这一层请出去腾位置。重开一次，收藏应当回到库里那一本；若在变少之后又做过删除/整理，库里可能已被旧账顶掉，那种情况需要从备份找回。</p>
+          </div>
+          <!-- #1500：本节此前只在在线权威源 src/pwa/notice.json、离线兜底缺章——随「目录编号统一」补齐，两源同口径 -->
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">13、关于「在后台放音乐，进本站突然变响、退出来又变轻」（后台保活不再占用手机音频通道）</p>
+            <p class="splash-bullet">成因：「后台保活」靠一条近乎无声的音频一直循环播放，让系统别把本页冻结，TA 的消息才照常进来。而这条在系统眼里＝「本站正在放媒体」＝占住了手机音频通道，你另一个 App 的音乐于是被强制压低。前一版为了治「站内一直有嘟嘟声」，把这条音频在前台压成 0、切到后台才恢复音量——于是每次切进切出都在改「本站到底算不算在放媒体」：进本站＝系统收走我们的占用，你的音乐恢复原音量（突然变响）；退出去＝我们又占上，你的音乐再被压低（又变轻）。这是音频通道的性质，不是某一款机型的毛病，各家认音频焦点的浏览器都一样。</p>
+            <p class="splash-bullet">现在的做法：那段近无声音频默认改走「站内音效」那条通道（设置 → 系统 新增一档「保活不抢其他 App 的声音」，默认开启）。页面照样持续出声、系统照样不冻结本页，但不再向手机声明「本站正在放媒体」——你在别的 App 听歌 / 看视频时不会被本站压低音量，切进切出也不再忽响忽轻。代价说清楚：通知栏那条「Mochi 后台保活」的媒体横幅不再出现，因为那条横幅本身就是那次音频通道的占用。</p>
+            <p class="splash-bullet">万一因此收不到后台消息：个别浏览器只认那条媒体横幅给的豁免。把 设置 → 系统 →「保活不抢其他 App 的声音」关掉就回到老路（有横幅、会占用音频通道），当场生效、不用等改版。上传了自定义保活音频（白噪音 / 助眠声）时这一档不参与——那是你要出声放的东西，照旧走媒体通道。想知道此刻走的是哪条：设置 → 查看诊断 →【保活现场】里的「锚=」那一格（媒体元素(占媒体通道) / WebAudio(不占媒体通道)）。</p>
+          </div>
+          <!-- #1579（2026-10-22 作者直派「公告新增 10.22 更新」）：与在线权威源 src/pwa/notice.json 同口径（在线整段替换本段；此处为断网/弱网兜底）。
+               插在 #1060 通知章之前＝「通知相关设置放公告最后」的用户直派仍成立（verify-1060/1473 按「末章/末块」锚定，语义不动）；
+               原第 14 章（后台通知相关设置）顺延为第 15 章（#1500 目录统一编号口径，阿拉伯数字顺延） -->
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">14、10.22 更新</p>
+            <p class="splash-bullet">本次没有新增难题问卷，但新增了开屏前的《本站入站须知》和《入站氛围确认（8个题目）》。总之就是一些原则问题，规则从来都不是卡正常使用。</p>
+          </div>
+          <!-- #1060（2026-09-23 用户直派「关于后台通知相关设置也放在公告里，放在公告的最后新增一个目录」）：
+               与在线权威源 src/pwa/notice.json 的 sections 末条同口径（在线整段替换本段；此处为断网/弱网兜底） -->
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">15、关于后台通知相关设置（怎么开、收不到怎么办）</p>
+            <p class="splash-bullet"><b>三个开关都在 设置 → 系统</b>：「后台通知」＝页面在后台时 TA 发消息弹系统通知（打开它会自动把「后台保活」一起打开，保活是通知的前提）；「通知逐条弹（关闭去重）」＝默认关闭（连发内容相同或近期弹过的消息只弹一条），<b>打开后联系人每条消息都单独弹</b>（字卡重复率高时会连环弹同句，按需开）；「后台保活」＝让页面在后台继续运行。</p>
+            <p class="splash-bullet"><b>怎么确认通了</b>：点「后台通知」行右边的「测试」——当场体检（开关 / 通知权限 / 后台保活与锚点 / 后台服务通道 / 历史冻结与断流取证）并真发一条通知、回读系统通知队列，卡在哪一环直接写在结果里；结果里还有第二段可测「后台阶段」。</p>
+            <p class="splash-bullet"><b>收不到①·浏览器权限</b>：地址栏左侧图标 → 权限 → 通知 → 允许；若列表里没有本站、或授权框从不出现（浏览器会把反复弹过授权框的站自动挡掉）→ Chrome ⋮ → 设置 → 网站设置 → 通知 →「添加网站例外」→ 输入本站网址。若你是从桌面图标（已安装应用）打开的，通知权限由应用自己管理、Chrome 网站设置里不显示本站属正常：<b>长按图标卸载后重新「添加到主屏幕」，安装时允许通知即可重置</b>。</p>
+            <p class="splash-bullet"><b>收不到②·页面在后台被冻结或回收</b>：保活靠页面在后台运行，系统省电/内存策略会把挂久的页面冻结甚至丢弃（Chrome「内存节省程序」约 30 分钟，手机内存紧张时更快），别的 App 刷视频/听音乐也会占用音频通道把保活截断——表现就是「弹一下就停了」。恢复：彻底关闭网页重新打开，再把「后台保活」「后台通知」重新打开；并把 Chrome 加入「始终保持活动」、省电策略设「无限制」，到 设置 → 工具 → 查看存储 清掉最占地方的数据（页越轻越不容易被丢）。</p>
+            <p class="splash-bullet"><b>收不到③·设计内不弹</b>：你正在前台看着聊天时不弹（聊天里直接可见）；切后台头 15 秒内的旧内容不弹（防刚看完的又弹一遍，打开「通知逐条弹」后此项不再拦）；跨桌面补投递的历史旧消息不弹。</p>
+            <p class="splash-bullet"><b>收不到④·手机开了勿扰/免打扰</b>：安卓的「勿扰/免打扰」、iPhone 的「专注模式」（勿扰·睡眠·驾驶·工作）会把所有应用的通知静默收进通知栏——屏幕上方不弹横幅，而<b>网页读不到这个状态</b>，所以会出现「测试体检全绿、通知真发出去了，屏幕上却什么都没有」。<b>一步自查</b>：下拉通知栏看那条测试通知在不在，<b>在＝被系统压住</b>，不是链路坏了——去系统设置关掉勿扰，或在勿扰设置里把本浏览器（或桌面上的 Mochi）加进「允许的应用/例外」。同一族还有：通知被长按成「静默/减少干扰」、浏览器「网站通知」那一类单独关掉、锁屏设成隐藏通知内容、iPhone 开过「定时推送摘要」（通知攒到点才出现）；电脑端＝Windows「请勿打扰/专注助手」与 macOS「专注模式」。另外开着本站自己的<b>「夜间免打扰模式」</b>（原「夜间模式」）时 22:00–7:00 TA 不主动发消息，后半夜本来就没有可弹的内容——本站那两个档管「有没有消息可弹」，手机系统勿扰管「有消息也弹不出来」。</p>
+            <p class="splash-bullet"><b>换浏览器 / 换网址要重新允许</b>：通知权限按「浏览器 + 网址」记，Chrome 与 Edge 各自独立；同一台手机换了浏览器，按上面「收不到①」重做一遍即可。</p>
+          </div>
+        </div>
+        <!-- 开屏1页：原第二页(splash-mandatory)内容并入第一页，clock.js showMandatory 因 mandEl=null 自动 finishEnter -->
+      <div class="splash-mandatory-scroll" id="splash-mandatory-scroll">
+        <div class="splash-mandatory-head">
+          <div class="splash-mandatory-title">进入前 · 作者必读公告</div>
+          <!-- #315c：进入前最后一屏补年龄红线——与开屏免责卡口径一致，防御链收口 -->
+          <div class="splash-mandatory-sub">本站禁止未满 18 周岁的未成年人使用；以下为作者停更公告，请阅读（滑到底部后可确认进入）</div>
+        </div>
+        <!-- 2026-09-28（用户直派「公告第二页最顶写」并给出定稿原文）：原文一字未动，只补标题＋分卡＝本页卡片体例；
+             本页最顶那张 pinned 卡刻意不带 `.splash-mandatory-date`（本卡自己就是日期表，再挂一个日期会多出一个假诱饵）；
+             纯静态 DOM：不改门控（clock.js 的 mandBottom / finishEnter 一字未动，仍须滑到底才能确认进入）、不进 notice.json。
+             ⚠ 本卡第一行「2026.08.12 开始制作」＝二级密码的后 4 位（99+0812）。作者 2026-09-28 拍板：日期一直是很简单的字面意思、
+             不是隐藏答案，所以同批把九处指路改成「第一页的章节目录里和第二页最顶那张时间线卡都写着」（clock.js 3／applock.js 3／本页 tip 与摘要行／notice.json 摘要行）；
+             #1000 系列的针与 tools/verify-1000-pw-hint.mjs 的 S7・B4 两条断言要同批换锚，落点见 WORKLOG。 -->
+        <div class="splash-mandatory-card" id="splash-mandatory-timeline">
+          <div class="splash-mandatory-h">关于永久停更</div>
+          <div class="splash-mandatory-body">
+            <p>mochi 字卡 · 时间线</p>
+            <p>2026.08.12 开始制作</p>
+            <p>2026.08.15 开始内测</p>
+            <p>2026.08.29 正式公开</p>
+            <p>2026.09.30 完结停更</p>
+            <p>2026.08.12 ～ 2026.09.30，制作 50 天，正式完结。</p>
+            <p>这个网站不会再继续更新，但不会关闭，内容永久保留，网站依然可以正常使用和下载，GitHub 库开源代码也可继续下载。</p>
+            <p>并不懂代码，网站是 AI 辅助制作。目前来说只有三个月的制作经验，7月做了第一个网站星言，8月做了第二个网站mochi。以后如果有时间，可能会做出更成熟的作品吧。</p>
+            <p>因制作仅 50 天、功能太多、工程量太大，网站内所有文字内容并未一一检查，仅供参考。</p>
+          </div>
+        </div>
+        <!-- v8.44 #1215（用户 2026-09-25 直派「开屏公告的第二页新增内容：关于设备兼容问题和自己修bug」并给定稿原文）
+             ＋同日追改 #1215b（用户：「把今天最新的刚刚叫你加的内容放在第二页的公告放在最顶上，默认打开，其他的折叠起来」）——
+             两张卡＝顺作者给的主题行在「方法清单」那一句处换题拆开（前半＝设备兼容，后半＝自修方法），
+             卡标题即取自该主题行的两半（不另拟文案）；**原文一字未删**，只补日期/标题与分卡（页 2 体例＝日期 + 标题 + 正文段）。
+             排版处理（不改口径）：① 正文里的小写 ios/ai 统一为 iOS/AI、中英文间补空格，与本页 #995、#1022 两段既有卡片同口径；
+             ② 方法清单那五条借用页 2 已有、此前一直空着的 .mnum 列表样式（base.css 里定义在位，零新增）；
+             ③ 清单第一条原文末尾无句号，与同组其余四条对齐补「。」。
+             ⚠️ 页 2 的阅读顺序自本批改口径：**最新一批置顶、默认展开**，更早的五张（09.12 / 09.14 / 09.21 / 09.22×2）
+             整体包进下面那个原生 details（默认收起，点标题展开）。这**刻意覆盖**了 #995、#1022 注释里
+             「按日期顺序追加在页 2 最末」的旧口径（那句 today 已不成立，别照它回滚）：
+             下一批若也要默认展开，接在 fix-guide 卡之后、`<details` 之前；否则加进 details 内末尾按日期排。
+             折叠用原生 details/summary，零 JS；**不要给它加默认展开的属性**（＝撤销用户要的「其他折叠起来」）。
+             门控一字未动（clock.js 的 mandBottom / finishEnter 仍只看滚动容器）：展开后内容变长，
+             「未滑到底」会重新成立＝确认按钮重新置灰、提示条重新出现，须再滑到底才能进入——这是设计不是故障。
+             不进 notice.json（#995 起既定口径：强制页从不在线覆盖，notice.json 只覆盖页 1 公告列表与摘要）。
+             ⚠️ 本注释刻意不复述任何正文原句（连 needle 也不写）：注释会随构建进产物，写了等于把哨兵钉在自己身上，
+             而且会让「按原话顺序排列」这类顺序断言先在注释里命中一次（本批实测踩过，见 tools/verify-1215 的 S3）。 -->
+        <div class="splash-mandatory-card" id="splash-mandatory-device-bug">
+          <div class="splash-mandatory-date">2026.09.25</div>
+          <div class="splash-mandatory-h">关于设备兼容问题</div>
+          <div class="splash-mandatory-body">
+            <p>关于设备 bug 的问题，已经解释过很多次了：大多是不同手机型号导致的。作者自己的手机使用一直是正常的，正常使用下网站本身没什么 bug，大功能小功能都是正常的。</p>
+            <p>因为我没有其他人的手机型号，一直以来帮修都是盲修。再加上手机型号差异非常多，问题会反复出现。这个网站功能太多，不同手机型号可能在某个功能上出现小 bug，但一般正常聊天和大部分功能都没问题。</p>
+            <p>iOS 更是因为设备限制会卡顿，但我没有 iOS 手机，无法测出问题，而且不同型号可能有不同的卡顿问题。安卓还挺正常的使用很流畅，但是 iOS 好像都卡顿。主要就是 iOS 的问题我修不了，安卓目前出现的都是小问题还好，就是一些不同设备导致出现的各种奇奇怪怪的小问题。</p>
+            <p>不是不帮，我已经修尽力了。从开始内测至今，网站已经部署更新七百多次，除了前几天在医院陪护，每天除了吃饭睡觉都在调整网站功能和帮修问题，一直在熬夜，然后这两天实在是撑不住了睡觉去了。如果不信，github 库里也有代码上传的记录。</p>
+            <p>如果因为手机型号问题觉得这个网站 bug 很多——代码都是开源的，可以自己调。永久停更后也建议有能力的朋友自己修，有自己的真机验证，会好修很多很多。</p>
+          </div>
+        </div>
+        <div class="splash-mandatory-card" id="splash-mandatory-fix-guide">
+          <div class="splash-mandatory-date">2026.09.25</div>
+          <div class="splash-mandatory-h">和自己修 bug 的方法</div>
+          <div class="splash-mandatory-body">
+            <p>自己修 bug 的方法：</p>
+            <p class="mnum">把代码和文件夹全部下载到电脑本地。</p>
+            <p class="mnum">按【设备型号 + 浏览器 + 问题 + 设备诊断 docx】的格式报给 AI。</p>
+            <p class="mnum">不清楚怎么报，就把问题描述得越详细越好。</p>
+            <p class="mnum">注意：不要跟 AI 说「梦角什么什么」，要说你的操作流程和哪个功能异常。</p>
+            <p class="mnum">设备诊断信息我设置了几个自测功能，就是你遇到什么问题，就导出什么文件，一起给 AI。</p>
+            <p>推荐 AI 修问题，但建议不要 100% 依赖 AI，AI 会出错和骗人，也需要一直调整。</p>
+            <p>之前一直都是尽力帮修，月底后永久停更，不处理任何事务。建议要么凑合用，要么自己调，代码一直是开源的。</p>
+          </div>
+        </div>
+        <details class="splash-mandatory-fold" id="splash-mandatory-older">
+          <summary class="splash-mandatory-fold-sum">更早的公告 · 2026.09.12 ~ 09.28</summary>
+        <div class="splash-mandatory-card">
+          <div class="splash-mandatory-date">2026.09.12</div>
+          <div class="splash-mandatory-h">月底停更，说点心里话</div>
+          <div class="splash-mandatory-body">
+            <p>先说谢谢。</p>
+            <p>这个字卡从做出来到现在，用过的人、说过谢谢的人，我都记着。</p>
+            <p>有的人认真谢过，有的人只是取了东西就走，我心里有数。</p>
+            <p>网站是我一个人做的，最开始是给自己做的。每天维护的时间，全是我自己的钱和自己的精力，从开始到现在都是这样。</p>
+            <p>最近这段时间，每天要花大量时间回同样的问题、处理别人报的设备bug，我的作息已经乱了，最开始做这件事的劲头也耗完了。</p>
+            <p>我没有办法再继续无偿做下去。所以月底之后：</p>
+            <p>网站依旧是开源和免费的，代码可以自己拿去改。</p>
+            <p>网站不再维护和更新，要更新只按我自己手机来。</p>
+            <p>群解散，我不再帮人看 bug。</p>
+            <p>还没处理完的，月底前我会做完。</p>
+            <p>已经写好的内容我不删，会留着。</p>
+            <p>这不是针对谁。只是我必须停下来了。</p>
+            <p>谢谢你们陪我走过这一段。月底后，这个网站完结。</p>
+          </div>
+        </div>
+        <div class="splash-mandatory-card">
+          <div class="splash-mandatory-date">2026.09.14</div>
+          <div class="splash-mandatory-h">关于不再更新网站后的建议</div>
+          <div class="splash-mandatory-body">
+            <p>网站一直是开源的，从公开时就是支持二传二改和私人部署的。</p>
+            <p>如果是解散后，我建议可以把所有代码都下载出来，在电脑上用 Trae WorkCN 和 WorkBuddy，输入问题、你的手机型号、还有诊断信息，让 AI 给你修。</p>
+            <p>付费的就不说了，这两个每天签到有积分，可以凑合用。</p>
+            <p>如果说让手机端的那个免费 AI 修，其实修不了——只用 index 的文件，完整代码太长了，已13w行所以这个我已经拆分了。要把全部代码文件和文件夹、有拆分的部位那种全部给AI，找位置修。</p>
+            <p>关于设备 bug：内测开始开屏公告里就说明过了，很多问题开屏里都写了。有的问题有人能碰到，有人碰不到；还有的可能不是代码本身的问题，是不同设备才能碰到的，总是各种奇奇怪怪的设备兼容问题。可能也因为字卡功能太多，如果功能少一点，应该好一点。</p>
+            <p>其实如果自己试的话，只修一个人的设备，我感觉应该没有特别困难。现在是因为人太多了，手机设备差异很多，要一直调，而且我手上只有自己的手机，没有其他机型真机验证，算是盲修；如果只按自己的设备来，还能拿自己的手机随时验证修没修好，应该好修。</p>
+          </div>
+        </div>
+        <!-- v8.29 #995（用户 2026-09-21 直派「开屏二页需要新增」，并给出三段定稿文案：①虽建议用 AI 但不要
+             100% 依赖和信任、作者也是 0 经验开搓的；②网站只做了一个半月，停更后不解答任何问题、代码一直全开源
+             可看可学可二改；③上面推荐的两个可白嫖 AI 的额度只是当下、以后不知道、仅供参考）——
+             与 #975（两页各处的「AI 也会出错和骗人」）同源，本卡是页 2 侧的展开说明。
+             纯静态 DOM：不改门控（clock.js 的 mandBottom / finishEnter 一字未动，仍须滑到底才能确认进入）、
+             不进 notice.json（强制页从不在线覆盖，notice.json 只覆盖页 1 公告列表与摘要）。 -->
+        <div class="splash-mandatory-card" id="splash-mandatory-aicaveat">
+          <div class="splash-mandatory-date">2026.09.21</div>
+          <div class="splash-mandatory-h">关于让 AI 修，先说清楚几句</div>
+          <div class="splash-mandatory-body">
+            <p>虽然建议使用 AI，但建议不要 100% 依赖和信任 AI。AI 也会出错和骗人。作者也是 0 经验开搓的，目前是从 2026 年 6 月~9 月积累的制作经验，问就是已经体验过了：AI 需要一直自己调，每天和 AI 话几百条。</p>
+            <p>mochi 网站做了一个半月，永久停更后不解答任何问题，请自己解决；代码一直是全部开源的，可查看、可学习、可二改。</p>
+            <p>关于上面推荐的那两个可以白嫖一点点的 AI：是目前有一点点可以白嫖的额度，以后不知道，仅供参考。</p>
+          </div>
+        </div>
+        <!-- v8.35 #1022（用户 2026-09-22 直派「开屏第二页增加内容」，并给出定稿原文：造谣/恶意引流与不署名、
+             网站一直公开免费从没要求点赞关注评论、星言字卡与 mochi 字卡都是自费制作没收过一分钱、
+             并担心停更后有人借网站名义收费）——
+             放置口径：接在 #995（2026.09.21）之后、`—— 公告完 ——` 之前＝按页面既有的日期顺序排在页 2 最末；
+             拆两张卡＝顺着原文本自带的「还有个问题就是」换题过渡（主题一＝尊重 / 署名 / 免费公开，主题二＝澄清「收费」传闻），
+             **原文一字未删**，只补标题与分卡（页 2 的卡片体例＝日期 + 标题 + 正文段）；末段（「用了非常多的精力和心血…互相尊重彼此」，
+             作者在同一批里追加的「最后一段话」）按原话顺序放在整段的最后＝第二张卡末尾。
+             2026-09-22 追记（#1045，作者本人给出修改稿）：第二卡第二段中段改写——「有人不清楚现状却对外说…这不是自相矛盾吗？
+             网站本来就是免费的，为什么还要说这种话。也是力竭了。」→「有人不清楚现状有对外说类似…完全自相矛盾，这网站本来就是免费的，
+             一直是免费的，请不要在外面乱传。」＝语气收敛、口径不变（一直免费/没收过钱/怕停更后被传成收费）；两卡其余各段一字未动。
+             纯静态 DOM：不改门控（clock.js 的 mandBottom / finishEnter 一字未动，仍须滑到底才能确认进入）、
+             不进 notice.json（强制页从不在线覆盖，notice.json 只覆盖页 1 公告列表与摘要）。 -->
+        <div class="splash-mandatory-card" id="splash-mandatory-respect">
+          <div class="splash-mandatory-date">2026.09.22</div>
+          <div class="splash-mandatory-h">一些其他事情</div>
+          <div class="splash-mandatory-body">
+            <p>虽然我对这些事情其实不是很想提，但网站月底就永久停更了，还是作为信息留存写进来。</p>
+            <p>说实话自从开始做网站，发生了很多事情，实在是沧桑了许多。造谣的人，别关注我，我不伺候。</p>
+            <p>希望彼此尊重。用网站引流可以，但请先学会尊重创作者。讨厌恶意引流、二传链接不标注任何署名，也很讨厌用我网站还造谣我的人。人与人之间基本的尊重，总该要有吧。</p>
+            <p>我知道很多人就是拿了链接就跑了，我一直也没有要求过任何人必须关注或点赞才能拿到链接，链接一直是公开的。</p>
+            <p>但看到还有人没有标注任何署名，发帖要求「评论祝福才能给链接」类似的事情，甚至有人指出作者在哪里网站是公开免费的后反而被拉黑，发帖人说求链接「没收费就不错了」。</p>
+            <p>有没有可能，我的网站一直都是公开的、免费的呢？作者本人发链接，都没要求过任何人必须点赞、关注、评论，才能拿到链接，更没有收费。虽然我不常看这些事，但也不是完全不知道，总会有人看到然后告诉我啊。这完全是不尊重我的作品，也不尊重我的使用规则。就感觉真心一直被辜负。</p>
+          </div>
+        </div>
+        <div class="splash-mandatory-card" id="splash-mandatory-fee-rumor">
+          <div class="splash-mandatory-date">2026.09.22</div>
+          <div class="splash-mandatory-h">关于「收费」，一并说清楚</div>
+          <div class="splash-mandatory-body">
+            <p>还有个问题就是，不管是 2026 年 7 月搓的星言字卡，还是 8 月搓的 mochi 字卡，作者一直都是自费制作的。这两个字卡网站都是免费网站，没有收过任何人一分钱，有人想悄悄给我塞钱，我也都拒绝了。</p>
+            <p>我一直都说这是免费网站，有人不清楚现状有对外说类似「网站是免费的，但除了作者谁都不要给钱」——完全自相矛盾，这网站本来就是免费的，一直是免费的，请不要在外面乱传。我真怕有人在外面乱传，明明网站一直是免费的，却被说成「免费但作者私下收费」之类的话。</p>
+            <p>还有更怕永久停更后有人借着这个网站的名义收费，到时候真传成「这网站收费」，也是说不清了。</p>
+            <p>说实话，这个网站是我用了非常多的精力和心血做成的，我做不到对外面那些话语完全零反应。就算对我的网站，我的话不认可，也请互相尊重彼此。</p>
+          </div>
+        </div>
+        <!-- 2026-09-28（用户直派「帮我把这个内容加进公告第二页」并给出定稿原文）：原文一字未动（含「ios／chrome」原样小写、编号「1.2.3.4.」与两处【】段），只补 日期＋标题＋分卡＝本页卡片体例；
+             落点＝页 2「更早的公告」折叠块内末尾（#1215 之后本页＝标题条→置顶两卡→折叠块→公告完）：既按日期排在 09.22 之后，又不挤开「公告完」前那几行（#995e 的 needle 与 verify-1215 的 B5 索引都钉在结构上）；
+             折叠块标题的日期范围同批从 09.22 改到 09.28（#1215h 的针是块 id，不钉这句文案）。纯静态 DOM：不改门控、不进 notice.json。 -->
+<div class="splash-mandatory-card" id="splash-mandatory-usage-advice">
+          <div class="splash-mandatory-date">2026.09.28</div>
+          <div class="splash-mandatory-h">关于使用如果出现问题</div>
+          <div class="splash-mandatory-body">
+            <p>1.不同手机型号设备、不同手机系统、不同浏览器，有可能出现不同的bug。</p>
+            <p>主要原因可能还是因为功能设计太多了，这个项目无法装下这么多设置，会有很多限制，所以除了设备限制外的其他具体原因作者也不是很清楚。【只能说作者手机使用没什么问题，一般正常来说别的设备使用基础功能应该没什么问题，但是不同设备可能还是会碰到不同奇奇怪怪的小问题。】</p>
+            <p>2.建议安卓不要使用默认浏览器，安卓手机的默认浏览器可能出现很多不同的兼容问题。</p>
+            <p>3.然后如果有出现问题，都可以试试什么浏览器问题少就用什么浏览器。如果有出现小问题，刷新重新打开网站使用就行。</p>
+            <p>4.如果长期使用因手机浏览器内存占用太多出现问题，建议只单独保存字卡库的数据，重新清除数据后使用。</p>
+            <p>【作者是安卓用chrome浏览器，现在是连续使用了四十多天基本上没什么问题，但这个项目月底是永久停更，所以给到建议是这样。】</p>
+            <p>并且iOS卡顿的问题，因为作者没有iOS手机，所以只能每次有人报一次就改善一点点，也可能没有改善。不同ios型号和ios系统出现的问题也不一样，反正就是盲修，除了我自己的手机外可以修复测试复现问题，其他所有人的全部都是盲修。</p>
+            <p>马上月底也停修了，ios因设备限制很多，盲修解决不了卡顿问题，安卓会好很多正常使用很流畅。</p>
+            <p>实在不行就自适应凑合用或自己拿开源代码真机测试修改或换网站吧，或者建议也是只保存字卡库的数据，清除数据重新使用。</p>
+          </div>
+        </div>
+        </details>
+        <div class="splash-mandatory-end">—— 公告完 ——</div>
+        <!-- 2026-10-01（作者直派「公告最末的以上内容删掉」）：原末段「使用之前请先看第一页的开屏公告，很多问题上面都写了。
+             ……AI 给的答案请自行甄别。」整段删除（AI 使用建议口径仍由上方 #1215 卡与目录第 2 章承载）。 -->
+      </div>
       </div>
     </div>
+    <!-- v3.8.y：底部操作区固定不随内容滚动；.splash-box 为整页滚动容器 -->
+    <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
+    <div class="splash-footcard">
+      <!-- 2026-10-01（作者直派「更新时间/更新提醒删掉、不写版号，只写已完结停更」）：原三行
+           （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
+           data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
+           仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
+      <div class="splash-ver" id="splash-ver" data-build-ts="1793114203061" data-version="v8.68">
+        <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
+      </div>
+      <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
+           只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
+      <div class="splash-loading" id="splash-loading">正在加载数据…</div>
+      <!-- #657：等得比较久时就地解释「为什么慢、不是坏了」——用户普遍把开屏等待当成 bug，
+           而这一刻他盯着的是这里、不会去翻公告章节。默认 hidden，只在
+           「数据多未就绪(slow)」或「数据已就绪但整页 5.5MB 资源还没加载完」时由 clock.js 显示 -->
+      <div class="splash-loading-sub" id="splash-loading-sub" hidden>首次打开要先联网下载整个网站的代码，再取回存在你本机的数据；网速慢、设备越旧、数据越多都会更慢，属正常，不是坏了。若长时间停在「正在加载页面」，多与当前网络连不上有关（某些 WiFi 对本站不稳定），换一个网络（WiFi 与流量互换）再试通常就能打开。</div>
+      <!-- v3.8.y：必须把公告滑到底才能进入——未到底时按钮置灰不可点，下方提示滑动 -->
+      <div class="splash-enter-hint" id="splash-enter-hint" hidden>请滑到底部后进入</div>
+      <!-- #315c：一次性年龄确认勾选——勾选后才可进入（clock.js 门控），确认一次后永久记住；
+           把免责从「默认你看了」升级为「明确勾选确认」，未勾选时进入按钮置灰 -->
+      <label class="splash-age" id="splash-age-row" hidden>
+        <input type="checkbox" id="splash-age-check">
+        <span>我已阅读并同意上方全部说明，确认本人已年满 18 周岁</span>
+        <!-- #1453：勾选行旁一条「查看免责声明」锚点——点它滚回上面那张免责卡（clock.js 接线，smooth 滚动手感同目录跳转）。
+             用 <a href="#splash-disclaimer"> 而非 span：不依赖 JS 也能跳（渐进增强）、原生可聚焦；JS 里 preventDefault 后不用 hash 跳转。
+             只提供查看入口，不改变门控：未勾选仍进不去（updateEnterState 一字未动） -->
+        <a class="splash-age-view" id="splash-age-view" href="#splash-disclaimer">查看免责声明</a>
+      </label>
+      <div class="splash-fold-toggle" id="splash-fold-toggle" hidden>折叠公告详情</div>
+      <div class="splash-btns">
+        <!-- v3.26.x：按钮文案「点击进入」→「我已阅读并知晓」——把进入动作显性化为已读确认（公告没人看的低成本对策第一步；门控/样式/脚本定位均未动） -->
+        <div class="splash-enter" id="splash-enter" hidden>我已阅读并知晓</div>
+      </div>
+      <!-- v3.26.x：数据加载超 12 秒仍未就绪时的逃生口（clock.js 控制显隐，默认 hidden）；
+           点此进入会提示「数据仍在加载，部分内容可能暂时看不见」，避免静默放行误入空数据 -->
+      <div class="splash-force-enter" id="splash-force-enter" hidden>仍要进入</div>
+    </div>
   </div>
-<script>
-/* 第三方美化开屏（2026-10-28）：真实进度条——按已加载脚本比例推进，数据就绪补满 100% */
-(function () {
-  var fill = document.getElementById('ml-fill'), pct = document.getElementById('ml-pct');
-  if (!fill || !pct) return;
-  var stopped = false, t0 = Date.now();
-  function stop() { stopped = true; }
-  function tick() {
-    if (stopped) return;
-    if (Date.now() - t0 > 35000) { stop(); return; } // 硬上限：慢网也给足时间，绝不常驻
-    try {
-      var sp = document.getElementById('splash');
-      if (sp && sp.classList.contains('hide')) { stop(); return; } // 进站即停，绝不停留重绘
-      // 弹窗/密码盘开着时暂停刷新（精确探测：老版 mochiOverlayBusy 会把开屏自身误判为忙，进度条永停 0%）
-      var busy = false;
-      try {
-        var mm = document.getElementById('modal-mask');
-        if (mm && !mm.hidden) busy = true;
-        var al = document.getElementById('applock-mask');
-        if (al && !al.hidden) busy = true;
-      } catch (e) {}
-      if (busy) { setTimeout(tick, 500); return; }
-      var p;
-      try {
-        var files = (window.__mochiJsFiles || []).length || 0;
-        // 真实网络下载进度：已完成的 js 下载条目 / 总数（PerformanceResourceTiming 记录浏览器真实下载完成的资源）
-        // 旧版按「已执行脚本」算，但进站只需前几个核心脚本+数据恢复，其余 80 个还在后台下载,
-        // 于是进站瞬间只有 ~2% 已执行、进度条卡死在 2% 后突然跳进——改为下载进度后随文件到达平滑上升
-        var done = 0;
-        try {
-          var rs = performance.getEntriesByType('resource');
-          for (var i = 0; i < rs.length; i++) {
-            var nm = rs[i].name || '';
-            if (nm.indexOf('/js/') >= 0 && nm.slice(-3) === '.js') done++;
-          }
-        } catch (e2) {}
-        var execN = (window.__mochiLoaded || []).length + (window.__mochiErrLoaded || []).length;
-        var pd = files > 0 ? Math.round(done / files * 100) : 0;     // 下载完成比例
-        var pe = files > 0 ? Math.round(execN / files * 100) : 0;    // 已执行比例
-        // 文档解析阶段（真实信号）：loading=0，interactive=10%，complete=18%
-        var pdDoc = 0;
-        try { var rds = document.readyState; if (rds === 'interactive') pdDoc = 10; else if (rds === 'complete') pdDoc = 18; } catch (e3) {}
-        // 两条真实信号加权合成：文档阶段(0-18) + 下载/执行(0-81) = 上限 99%，数据就绪补满 100%
-        p = Math.min(99, pdDoc + Math.round(Math.max(pd, pe) * 0.81));
-      } catch (e) { p = 0; }
-      if (window.__mochiDataReady && p < 100) p = 100; // 数据就绪补满 100% 后由进站逻辑隐藏开屏
-      if (p >= 100) { stop(); return; } // 就绪补满后停止
-      // 真实下载信号尚未出现（HTML 自身还在传输，无法计数）：显示流动加载动画，不假装数字
-      if (p < 8 && !window.__mochiDataReady) {
-        fill.classList.add('indet');
-        pct.textContent = '正在加载…';
-      } else {
-        fill.classList.remove('indet');
-        fill.style.width = p + '%';
-        pct.textContent = p + '%';
-      }
-    } catch (e) {}
-    setTimeout(tick, 250); // 降频：250ms/次，去掉每帧级重绘
-  }
-  tick();
-})();
-</script>
-
-  <div class="splash-ver" id="splash-ver" data-build-ts="1793114203061" data-version="v8.68" style="display:none"></div>
   <div class="phone">
       <div class="phone-bg-mask"></div>
       <div class="statusbar">
@@ -15366,11 +15786,6 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
         <button class="emoji-tool" id="mye-add-link">链接导入</button>
         <div style="font-size:11px;line-height:1.6;color:var(--muted);flex:1 0 100%;margin:2px 0 0" id="myemoji-add-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
       </div>
-      <!-- 第三方二改：公用表情包工具行（面板内直接上传，免跑去字卡库） -->
-      <div class="emoji-tools" id="pub-sticker-tools" hidden>
-        <button class="emoji-tool" id="pub-add-sticker">上传表情</button>
-        <div style="font-size:11px;line-height:1.6;color:var(--muted);flex:1 0 100%;margin:2px 0 0">直接上传到公用表情包：选中分组存入该分组，未选则存入「表情包」分组；与字卡库·公用字卡同库，全桌面联系人均可使用</div>
-      </div>
       <!-- 顶部分组切换栏（全部 / 各分组） -->
       <div class="emoji-groups" id="emoji-groups"></div>
       <div class="poke-card-scroll" id="emoji-list">
@@ -17721,7 +18136,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
   // v3.5.123：readonly 起手（防 Chrome 密码弹条破坏表单签名）——这里立即解除，
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
-window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
+window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
 (function () { try {
 (function () {
 try { window.__jsErrors = window.__jsErrors || []; } catch (e0) {}
@@ -20049,8 +20464,8 @@ setTimeout(reload, 1200); // SW 无响应也重载（浏览器 HTTP 缓存可能
 } catch (e4) { reload(); }
 } catch (e) {}
 }
-setTimeout(checkDoc, 8000); if (document.readyState !== 'complete') { } // 2026-10-29 第三方加固：60s -> 8s（截断页不再干等一分钟）
-else { window.addEventListener('DOMContentLoaded', function () { setTimeout(checkDoc, 2500); }); window.addEventListener('load', function () { setTimeout(checkDoc, 8000); }); }
+setTimeout(checkDoc, 15000); if (document.readyState !== 'complete') { } // 2026-10-29 提速：60s->15s（文档 load 后_EOF 已可查，残缺 15 秒内必自愈）
+else { window.addEventListener('DOMContentLoaded', function () { setTimeout(checkDoc, 3000); }); window.addEventListener('load', function () { setTimeout(checkDoc, 15000); }); }
 })();
 window.mochiViewportForm = function (sig) {
 const envTop = sig.envTop || 0;
@@ -20646,14 +21061,9 @@ localStorage.setItem(SD_ERR_KEY, JSON.stringify(arr));
 } catch (e1) {}
 }
 let _sdLastBad = '', _sdPend = null;
-// perf-fix: user-interaction quiet tracker — screen diagnostic must never run during scrolls/taps
-var _sdQuietUntil = 0;
-function _sdTouch() { _sdQuietUntil = Date.now() + 2500; }
-try { ['scroll','touchmove','pointermove','wheel','click'].forEach(function (ev) { document.addEventListener(ev, _sdTouch, { passive: true, capture: true }); }); } catch (eQuiet) {}
 function sdTick() {
 try {
 if (document.visibilityState !== 'visible') return;
-if (Date.now() < _sdQuietUntil) return; // interaction burst — defer diagnostic, no forced layout during browsing
 if (!window.__collectScreenDiag) return;
 try {
 var _splash = document.getElementById('splash');
@@ -20675,9 +21085,9 @@ sdArchive(r, 'auto');
 _sdPend = { sig: bad, names: badNames.join('、'), snap: sdSnapOf(r, 'auto') };
 } catch (e2) {}
 }
-setInterval(sdTick, 60000); // perf-fix: 5s -> 60s (diagnostic poll; quiet-gated above)
+setInterval(sdTick, 5000);
 let _sdEdgeT = null;
-function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 3000); } // perf-fix: 3s coalesce (iOS URL-bar resize fires during scroll)
+function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 1200); }
 try { window.addEventListener('resize', sdEdge); } catch (e3) {}
 try { if (window.visualViewport) window.visualViewport.addEventListener('resize', sdEdge); } catch (e4) {}
 try { window.addEventListener('orientationchange', sdEdge); } catch (e5) {}
@@ -21942,7 +22352,6 @@ if (t > 0) { baseTs = t; baseGot = true; }
 let lastCheck = 0;
 let failCount = 0;
 function checkVersion() {
-return; /* 第三方停改版（2026-10-28）：停止线上版本轮询与自动升级/重载，根治「新网页↔旧网页来回闪退刷新循环」 */
 if (document.visibilityState !== 'visible') return;
 const now = Date.now();
 const interval = failCount > 0 ? 5000 : 15000;
@@ -22461,7 +22870,8 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <script defer src="js/img-compress.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('img-compress.js')"></script>
 <script defer src="js/img-ingest.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('img-ingest.js')"></script>
 <script defer src="js/clock.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('clock.js')"></script>
-
+<script defer src="js/entry-quiz.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('entry-quiz.js')"></script>
+<script defer src="js/entry-rules.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('entry-rules.js')"></script>
 <script defer src="js/tabs.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('tabs.js')"></script>
 <script defer src="js/desktop-slider.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('desktop-slider.js')"></script>
 <script defer src="js/quote-cards.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('quote-cards.js')"></script>
@@ -22526,7 +22936,7 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <script defer src="js/fullscreen.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('fullscreen.js')"></script>
 <script defer src="js/data-backup.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('data-backup.js')"></script>
 <script defer src="js/feature-data.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('feature-data.js')"></script>
-
+<script defer src="js/update-remind.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('update-remind.js')"></script>
 <script defer src="js/cjian.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('cjian.js')"></script>
 <script defer src="js/feature-hub.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('feature-hub.js')"></script>
 <script defer src="js/settings-help.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('settings-help.js')"></script>

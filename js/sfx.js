@@ -34,7 +34,6 @@ out: ['bubble', 'ding', 'bird', 'drop', 'piano', 'tick'],
 };
 const PRESET_CONTAINERS = { ring: 'sfx-ring-presets', in: 'sfx-in-presets', out: 'sfx-out-presets', 'gc-in': 'sfx-gcin-presets', 'gc-out': 'sfx-gcout-presets' };
 let _ctx = null;
-try { _ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} // perf-fix: create AudioContext at load time (stays suspended) so clicks no longer block on new AudioContext (100-300ms on iOS). resume() is async and never blocks the click
 function ensureCtx() {
 try {
 if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();

@@ -386,6 +386,12 @@ if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagatio
 }
 function finishEnter() {
 if (splash.classList.contains('hide')) return;
+try {
+if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
+window.mochiEntryQuizGate(finishEnter);
+return;
+}
+} catch (e) {}
 if (!seenToday) {
 try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
 }
@@ -488,22 +494,7 @@ readyForced = true;
 updateEnterState();
 }
 }, 20000);
-/* === 第三方优化（2026-10-28）：无开屏，数据就绪即自动进站 ===
-   页面打开后不显示任何开屏画面；数据就绪立即进入主界面，不再有提示条/等待按钮。 */
-  var autoDone = false;
-  function autoEnter() {
-    if (autoDone) return;
-    autoDone = true;
-    try { if (!splash.classList.contains('hide')) finishEnter(); } catch (e) { try { hide(); } catch (e2) {} }
-  }
-  if (ready()) autoEnter();
-  else (function wait(n) {
-    if (ready() || n >= 40) { autoEnter(); return; }
-    setTimeout(function () { wait(n + 1); }, 250);
-  })(0);
-  document.addEventListener('mochi-restore-done', function () { autoEnter(); });
 })();
-
 function renderSplashSections(container, sections, opt) {
 if (!container || !Array.isArray(sections)) return;
 const collapsible = !!(opt && opt.collapsible);
