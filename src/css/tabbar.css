@@ -29,6 +29,11 @@
   /* #769 整栏透明度的图标层（personalize.js 已算好 12% 下限，见 applyTabbarStyle） */
   opacity:var(--tabbar-ico-a, 1);
 }
+/* 2026-10-29 按钮即时反馈：按下瞬间变色（transition 0s＝不等 JS 不等动画），
+   松手后回弹走正常 .18s。没有这条之前按下到页面切换之间零视觉反馈，即使 JS
+   很快也感觉"卡了一拍"。 */
+.tabbar .tab:active { background:rgba(0,0,0,.07); transition-duration:0s; }
+[data-theme="dark"] .tabbar .tab:active { background:rgba(255,255,255,.12); }
 .tabbar .tab.active { color:var(--ink); background:transparent; }
 .tabbar .tab svg { width:var(--tabbar-ico-size, 23px); height:var(--tabbar-ico-size, 23px); }
 /* #769 上传的按钮图片：与默认 SVG 同尺寸同槽位（svg 隐藏、img 顶上，见 paintTabIcon），
