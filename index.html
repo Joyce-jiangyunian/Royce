@@ -24,41 +24,6 @@
      脚本只认 dark、系统深色的 auto 用户会先白闪再由 personalize.js 纠正（FOUC）。
      另：旧版本残留的 data-theme 属性在此强制清掉，保证「选浅色」真回浅色。 -->
 <script>try{var _tm=localStorage.getItem('xy-home-v2:theme-mode');if(_tm==='dark'||(_tm!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}</script>
-<script>
-/* === Royce 启动守卫（2026-10-29，无侵入版）===
-   只做一件事：load 后校验文档完整性（EOF 锚点缺失=被 CDN/缓存截断），
-   残缺则清缓存后带 ?_heal=1 重新拉取（本会话仅一次，防环路）。
-   绝不干预门控、绝不自动放行进站——开屏进度/进站时机 100% 由既有逻辑负责。 */
-(function () {
-  var FLAG = 'mochi-trunc-reloaded';
-  function trunc() { try { return !document.getElementById('mochi-html-eof'); } catch (e) { return false; } }
-  function seen() { try { return sessionStorage.getItem(FLAG) === '1'; } catch (e) { return false; } }
-  function mark() { try { sessionStorage.setItem(FLAG, '1'); } catch (e2) {} }
-  function healReload() {
-    if (seen()) return;
-    mark();
-    var sep = location.search.indexOf('?') >= 0 ? '&' : '?';
-    function go() { try { location.replace(location.pathname + sep + '_heal=' + Date.now()); } catch (e3) { try { location.reload(); } catch (e4) {} } }
-    try {
-      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        var done = false;
-        var fire = function () { if (!done) { done = true; setTimeout(go, 120); } };
-        navigator.serviceWorker.addEventListener('message', function h(ev) {
-          if (ev.data && ev.data.type === 'PURGE_DONE') { try { navigator.serviceWorker.removeEventListener('message', h); } catch (e0) {} fire(); }
-        });
-        navigator.serviceWorker.controller.postMessage({ type: 'PURGE_INDEX' });
-        setTimeout(fire, 1500);
-      } else go();
-    } catch (e5) { go(); }
-  }
-  function check() { if (trunc()) healReload(); }
-  // 文档已完全解析（load 后）才查——避免大文档解析途中误判
-  if (document.readyState === 'complete') setTimeout(check, 3000);
-  else window.addEventListener('load', function () { setTimeout(check, 3000); });
-  // 二次确认：load 后 15s 再查一遍（极端慢解析场景）
-  window.addEventListener('load', function () { setTimeout(check, 15000); });
-})();
-</script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
@@ -11250,7 +11215,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1793114203061" data-version="v8.68">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1793245188012" data-version="v8.2">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11474,11 +11439,6 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 <div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/><path d="M12 3a9 9 0 000 18"/></svg></div>
 <div class="app-name">寻踪</div>
 </div>
-<!-- 花园自第三页移入：第二排「花园 此间 同频 伸手」（此间紧随其后为模板静态图标，同频/伸手由 p2-features 追加） -->
-<div class="app" data-app="garden" data-desk-widget="app-garden">
-<div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10l-1.5-5h-7z"/><path d="M12 16v-7"/><path d="M12 12c-2 0-3.5-1-3.5-3"/><path d="M12 10c2 0 3.5-1 3.5-3"/><circle cx="12" cy="6" r="2"/></svg></div>
-<div class="app-name">花园</div>
-</div>
 <!-- v3.13.x：此间（梦角世界时间与在场感知）桌面入口——聊天「更多功能」同款页面，从桌面进入返回桌面 -->
 <div class="app" data-app="cjian" data-desk-widget="app-cjian">
 <div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 012-2h12a2 2 0 012 2v16"/><path d="M4 21h16"/><path d="M10 21v-6h4v6"/></svg></div>
@@ -11487,15 +11447,8 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 </div>
       </div><!-- /page-slide 第二页 -->
 
-      <!-- 第三页：经期记录等健康记录 -->
+      <!-- 第三页：健康记录 -->
       <div class="page-slide third">
-<div class="desk-period glass" data-desk-widget="desk-period" data-card-bg="desk-period">
-  <div class="dpd-inner">
-    <div class="dpd-label" id="dpd-label">经期</div>
-    <div class="dpd-days" id="dpd-days">—</div>
-    <div class="dpd-sub" id="dpd-sub">未记录</div>
-  </div>
-</div>
 <!-- v3.13.x：今日备忘 + 今天的心情（自第二页移入，放经期卡下方） -->
 <div class="mini-row" data-desk-widget="memo-row">
 <div class="mini-card glass memo-card" data-card-bg="memo">
@@ -11508,10 +11461,6 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 </div>
 </div>
 <div class="app-grid p3-grid" data-app="p3" data-desk-widget="p3apps">
-<div class="app" data-app="period" data-desk-widget="app-period">
-<div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2C12 3.2 6 9.2 6 14.2a6 6 0 0 0 12 0c0-5-6-11-6-11z"/><path d="M12 16.4c0 0-2.3-1.4-2.3-2.9a1.25 1.25 0 0 1 2.3-.9 1.25 1.25 0 0 1 2.3.9c0 1.5-2.3 2.9-2.3 2.9z"/></svg></div>
-<div class="app-name">经期记录</div>
-</div>
 <div class="app" data-app="accounting" data-desk-widget="app-accounting">
 <div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2"/><path d="M4.5 8h15"/><path d="M10 13l2-2 2 2"/><path d="M12 11v6"/><path d="M10.5 14h3"/></svg></div>
 <div class="app-name">记账</div>
@@ -11524,11 +11473,6 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
 <div class="app" data-app="my-arc" data-desk-widget="app-my-arc">
 <div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5h5L10 4.5h9a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12z"/><circle cx="12" cy="9.5" r="1.9"/><path d="M8.4 15.6c.6-1.6 2-2.4 3.6-2.4s3 .8 3.6 2.4"/></svg></div>
 <div class="app-name">我的档案</div>
-</div>
-<!-- v3.15.x：房间（双人小屋）桌面第三页入口——聊天「更多功能」同款页面，从桌面进入返回桌面 -->
-<div class="app" data-app="room" data-desk-widget="app-room">
-<div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11L12 4l8.5 7"/><path d="M5.8 9.6V20h12.4V9.6"/><path d="M10 20v-5.4h4V20"/></svg></div>
-<div class="app-name">房间</div>
 </div>
 <!-- 本页动态注入 喝水/吃什么/存钱罐/番茄钟（p2-features.js，喝水排在本页静态图标之后） -->
 </div>
@@ -12787,7 +12731,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v8.68</div>
+          <div class="val" id="about-ver-val">v8.2</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -12879,7 +12823,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v8.68</div>
+      <div class="ver">Mochi 字卡传讯 v8.2</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -13278,7 +13222,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v8.68</span>
+              <span class="lic-ver">v8.2</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -18136,7 +18080,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
   // v3.5.123：readonly 起手（防 Chrome 密码弹条破坏表单签名）——这里立即解除，
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
-window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
+window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","accounting.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","accounting.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","update-remind.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
 (function () { try {
 (function () {
 try { window.__jsErrors = window.__jsErrors || []; } catch (e0) {}
@@ -20464,8 +20408,8 @@ setTimeout(reload, 1200); // SW 无响应也重载（浏览器 HTTP 缓存可能
 } catch (e4) { reload(); }
 } catch (e) {}
 }
-setTimeout(checkDoc, 15000); if (document.readyState !== 'complete') { } // 2026-10-29 提速：60s->15s（文档 load 后_EOF 已可查，残缺 15 秒内必自愈）
-else { window.addEventListener('DOMContentLoaded', function () { setTimeout(checkDoc, 3000); }); window.addEventListener('load', function () { setTimeout(checkDoc, 15000); }); }
+if (document.readyState === 'complete') setTimeout(checkDoc, 60000);
+else window.addEventListener('load', function () { setTimeout(checkDoc, 60000); });
 })();
 window.mochiViewportForm = function (sig) {
 const envTop = sig.envTop || 0;
@@ -22883,7 +22827,6 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <script defer src="js/reply-settings.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('reply-settings.js')"></script>
 <script defer src="js/fav-settings.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('fav-settings.js')"></script>
 <script defer src="js/default-cards-data.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('default-cards-data.js')"></script>
-<script defer src="js/dict-ext-data.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('dict-ext-data.js')"></script>
 <script defer src="js/default-cards.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('default-cards.js')"></script>
 <script defer src="js/quote-spell.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('quote-spell.js')"></script>
 <script defer src="js/dream-free.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('dream-free.js')"></script>
@@ -22912,10 +22855,7 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <script defer src="js/memo-app.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('memo-app.js')"></script>
 <script defer src="js/memo-arc.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('memo-arc.js')"></script>
 <script defer src="js/my-arc.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('my-arc.js')"></script>
-<script defer src="js/period.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('period.js')"></script>
 <script defer src="js/accounting.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('accounting.js')"></script>
-<script defer src="js/garden.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('garden.js')"></script>
-<script defer src="js/room.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('room.js')"></script>
 <script defer src="js/drift-bottle.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('drift-bottle.js')"></script>
 <script defer src="js/decision.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('decision.js')"></script>
 <script defer src="js/group-decision.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('group-decision.js')"></script>
@@ -22966,4 +22906,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvqtwdyt -->
+<!-- __MOCHI_EOF__ mvszvulo -->
