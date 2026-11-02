@@ -310,8 +310,11 @@ html = html.replace('/*__SCRIPTS__*/', () =>
 // 打包后首访从 88 请求降到 ~6 请求；extWrapped 本身一文件一 IIFE+try/catch，拼接保持原序与隔离（单件出错不连坐）。
 // onerror 保持与原标签同形（记录的文件名换成 app.js），pwa.js 自愈引擎按 __mochiExtFail 重注入仍可用。
 const BUNDLE_FILE = 'app.js';
+// PERF-CDN（2026-11-02）：app.js 4.9MB 改走 jsDelivr CDN（国内 8~10 倍速）；设 null 则回退同源
+// NOTE：@main 分支 jsdelivr 缓存最长 12h——紧急回退时部署后等缓存刷新，或改用锁 commit 的 URL
+const BUNDLE_CDN = 'https://cdn.jsdelivr.net/gh/Joyce-jiangyunian/Royce@main/js/app.js';
 html = html.replace('<!-- __SCRIPTS_EXT__ -->', () =>
-  '<script defer src="js/' + BUNDLE_FILE + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + BUNDLE_FILE + '\')"></script>'
+  BUNDLE_CDN ? '<script defer src="' + BUNDLE_CDN + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + BUNDLE_FILE + '\')"></script>' : '<script defer src="js/' + BUNDLE_FILE + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + BUNDLE_FILE + '\')"></script>'
 );
 // 注入部署时间（开屏显示）
 html = html.replace('__BUILD_INFO__', buildInfo);
@@ -385,7 +388,7 @@ if (!sw.includes('const BUILD_INFO')) {
 // 完整性校验 isCompleteHtml 只对 index 生效（sw.js isIndexUrl 分支），js 文件直接 c.put。
 // PERF-PLAN §6：install 预缓存只带合并包（83 件逐文件预缓存＝弱网首装连接池打满且每件一个慢请求）；
 // 单文件仍部署在 js/ 下，专供 __mochiExtFail 自愈链按需重拉（正常加载永不再请求它们）
-sw = sw.replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = ' + JSON.stringify(['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './js/' + BUNDLE_FILE]) + ';');
+sw = sw.replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = ' + JSON.stringify(['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './js/' + BUNDLE_FILE].concat(BUNDLE_CDN ? [BUNDLE_CDN] : [])) + ';');
 writeFileSync(swPath, sw);
 console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版本: mochi-' + buildStamp + '）');
 } else {
@@ -545,7 +548,7 @@ const FIX_SENTINELS = [
   { name: '#1221b 解析失败分档亮真实原因（删回笼统「无效的数据文件」＝截断/损坏/选错文件无从诊断、用户没法带原因反馈）', file: 'js/data-backup.js', needle: "if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {" },
   /* ==== 2026-09-19 #860 iOS 全机型「打开就卡、零数据也卡」根治＝PERF-PLAN 阶段 1b core 全外置：index 只留 静态HTML+CSS+3 件系统件（device/pwa/ver-check，~176KB）+≤4KB boot 段，其余 79 件走 <script defer src="js/…">（一文件一资源，消融实证合成大块把单次冻结峰值 308→481ms）；顺序=jsFiles 原序（D2，执行时序回单包语义）；sw install 分波预缓存；device.js 模块体检瞬态豁免只认启动后 15s；boot 看门狗 3s/8s 查 __mochiDataReady 挂重试条（弱网首访开屏不再永久定格）。六份 iOS 诊断共同形态：DCL 1.8~8.3s、与数据量无关；消融实测内联搬出即 DCL −513ms / index 4534→1223KB ====*/
   { name: '#860a 开屏看门狗在位（删＝全外置后弱网首访开屏永久定格、无「点此重试」逃生口）', file: 'index.html', needle: 'window.__mochiBootRetry' },
-  { name: '#860b core 全外置主锚（chat.js 必须是 defer 外置标签；回退＝2.9MB 内联塞回 HTML，iOS 解析期整段同步编译、打开就卡复发）', file: 'index.html', needle: '<script defer src="js/app.js"' },
+  { name: '#860b core 全外置主锚（chat.js 必须是 defer 外置标签；回退＝2.9MB 内联塞回 HTML，iOS 解析期整段同步编译、打开就卡复发）', file: 'index.html', needle: BUNDLE_CDN || '<script defer src="js/app.js"' },
   { name: '#860c boot 时刻戳（删＝device.js 模块体检的「弱网瞬态 vs 真没加载」时间闸失效，79 件 defer 全被当硬故障或反之）', file: 'index.html', needle: '__mochiBootAt = Date.now();' },
   { name: '#860d sw install 分波预缓存（每波 12；删＝85 项一波全并发把弱网首装连接池打满、新缓存打空）', file: 'pwa/sw.js', needle: 'i += 12' },
   { name: '#860e 模块体检瞬态窗（device.js；删＝弱网 15s 后仍缺的文件不再按硬故障报，诊断把死模块说成弱网）', file: 'js/device.js', needle: 'const transient = (Date.now() - (window.__mochiBootAt || 0)) < 15000;' },
