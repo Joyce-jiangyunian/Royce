@@ -6,8 +6,8 @@
 // 会一直显示「正在安装」永不完成（WebAPK 安装要经 SW 拉 start_url/图标）。
 // 现在每个请求最多等 NETWORK_TIMEOUT 毫秒，超时立即回退缓存（没缓存则快速
 // 失败），SW 最迟约 10 秒内必然激活，安装/加载都不再无限挂起。
-const CACHE = 'mochi-mvz22a7p';
-const BUILD_INFO = '部署于 2026-11-02 17:27';
+const CACHE = 'mochi-mvz32ycn';
+const BUILD_INFO = '部署于 2026-11-02 17:55';
 const PRECACHE = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png","./icon-180.png","./js/app.js"];
 // v3.10.x：网络优先超时从 8000 → 3500ms。GitHub Pages 国内访问经常 >8s，
 // 原 8s 超时导致手机端 fetch 频繁超时 → 回退 SW 缓存旧 index.html → 用户永远
@@ -241,6 +241,11 @@ self.addEventListener('fetch', (e) => {
   // 版本检测才真正可靠。notice.json（开屏公告）同理。
   const u = new URL(req.url);
   if (u.pathname.endsWith('/version.json') || u.pathname.endsWith('/notice.json')) return;
+  // 2026-11-02 拦截 Netlify 免费版注入的 HUD 脚本（它创建 Powered by Netlify badge；拦截后脚本根本不执行）
+  if (u.pathname.indexOf('/.netlify/scripts/hud') >= 0) {
+    e.respondWith(Promise.resolve(new Response('// disabled: Netlify HUD badge', { status: 200, headers: { 'Content-Type': 'application/javascript' } })));
+    return;
+  }
   // FIX 2026-09-10 #280 刷新黑屏卡顿收口①（华为畅享20Pro+Edge 等多机型「刷新黑屏卡顿几分钟」）：
   // 媒体池令牌渲染解析失败/未完成时 img.src 短暂（或失败路径下长期）保持 '@@m:<hash>' 裸令牌，
   // 浏览器把它当相对路径解析成同源 URL 发真实网络请求（诊断实证 资源加载失败 …/mochi/@@m:<md5>）。

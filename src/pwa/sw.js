@@ -241,6 +241,11 @@ self.addEventListener('fetch', (e) => {
   // 版本检测才真正可靠。notice.json（开屏公告）同理。
   const u = new URL(req.url);
   if (u.pathname.endsWith('/version.json') || u.pathname.endsWith('/notice.json')) return;
+  // 2026-11-02 拦截 Netlify 免费版注入的 HUD 脚本（它创建 Powered by Netlify badge；拦截后脚本根本不执行）
+  if (u.pathname.indexOf('/.netlify/scripts/hud') >= 0) {
+    e.respondWith(Promise.resolve(new Response('// disabled: Netlify HUD badge', { status: 200, headers: { 'Content-Type': 'application/javascript' } })));
+    return;
+  }
   // FIX 2026-09-10 #280 刷新黑屏卡顿收口①（华为畅享20Pro+Edge 等多机型「刷新黑屏卡顿几分钟」）：
   // 媒体池令牌渲染解析失败/未完成时 img.src 短暂（或失败路径下长期）保持 '@@m:<hash>' 裸令牌，
   // 浏览器把它当相对路径解析成同源 URL 发真实网络请求（诊断实证 资源加载失败 …/mochi/@@m:<md5>）。
