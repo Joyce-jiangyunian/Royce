@@ -359,7 +359,9 @@ rmSync(jsDir, { recursive: true, force: true });
 mkdirSync(jsDir, { recursive: true });
 // PERF-PLAN §6：写出合并包 js/app.js（extWrapped 原序拼接，IIFE 边界天然分隔；单请求承接全部功能件）
 extWrapped.forEach((code, i) => writeFileSync(join(jsDir, extFiles[i]), code));
-const bundleText = '/* Mochi 合并包：按构建顺序拼接 ' + extFiles.length + ' 个功能件，每件独立 IIFE+try/catch */\n' + extWrapped.join('\n');
+const bundleClear = '/* 合并包执行=加载成功：清掉 app.js 的 onerror 记录，防自愈横幅误报 */\n' +
+  'try{if(window.__mochiExtFail){window.__mochiExtFail=window.__mochiExtFail.filter(function(f){return f!==' + '"app.js"' + ';});}}catch(e){}' + '\n';
+const bundleText = bundleClear + '/* Mochi 合并包：按构建顺序拼接 ' + extFiles.length + ' 个功能件，每件独立 IIFE+try/catch */\n' + extWrapped.join('\n');
 writeFileSync(join(jsDir, BUNDLE_FILE), bundleText);
 console.log('已外置 ' + extFiles.length + ' 个 JS → js/（自愈兜底保留）+ 合并包 js/' + BUNDLE_FILE + '（' + Math.round(bundleText.length / 1024) + 'KB）；core 内联 ' + coreFiles.length + ' 个文件');
 const out = join(root, 'index.html');

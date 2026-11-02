@@ -1,3 +1,5 @@
+/* 合并包执行=加载成功：清掉 app.js 的 onerror 记录，防自愈横幅误报 */
+try{if(window.__mochiExtFail){window.__mochiExtFail=window.__mochiExtFail.filter(function(f){return f!=="app.js";});}}catch(e){}
 /* Mochi 合并包：按构建顺序拼接 81 个功能件，每件独立 IIFE+try/catch */
 (function () { try {
 (function () {
