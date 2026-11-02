@@ -305,8 +305,13 @@ html = html.replace('/*__SCRIPTS__*/', () =>
 // #802a：每条外置标签挂 onerror，拉取失败的文件记入 __mochiExtFail（error 是终态，
 // 原标签绝不会再执行 ⇒ pwa.js 自愈引擎按这份清单重注入不会双执行；只信 onerror、
 // 不信「没在 __mochiLoaded」——后者还可能是仍在慢下载中的文件，拿去重注入＝双执行）。
+// PERF-PLAN §6（2026-11-02）：83 个外置标签合并为单个打包标签 js/app.js。
+// 背景：GitHub Pages 单文件 8~14s/个 × 83 = 首访几十秒全冻（iPhone 15 实测/无头复现 16s 仅完成 40/88 请求）。
+// 打包后首访从 88 请求降到 ~6 请求；extWrapped 本身一文件一 IIFE+try/catch，拼接保持原序与隔离（单件出错不连坐）。
+// onerror 保持与原标签同形（记录的文件名换成 app.js），pwa.js 自愈引擎按 __mochiExtFail 重注入仍可用。
+const BUNDLE_FILE = 'app.js';
 html = html.replace('<!-- __SCRIPTS_EXT__ -->', () =>
-  extFiles.map(f => '<script defer src="js/' + f + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + f + '\')"></script>').join('\n')
+  '<script defer src="js/' + BUNDLE_FILE + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + BUNDLE_FILE + '\')"></script>'
 );
 // 注入部署时间（开屏显示）
 html = html.replace('__BUILD_INFO__', buildInfo);
@@ -349,8 +354,11 @@ if (!CHECK_SENTINELS) {
 const jsDir = join(root, 'js');
 rmSync(jsDir, { recursive: true, force: true });
 mkdirSync(jsDir, { recursive: true });
+// PERF-PLAN §6：写出合并包 js/app.js（extWrapped 原序拼接，IIFE 边界天然分隔；单请求承接全部功能件）
 extWrapped.forEach((code, i) => writeFileSync(join(jsDir, extFiles[i]), code));
-console.log('已外置 ' + extFiles.length + ' 个 JS → js/（' + extWrapped.reduce((n, c) => n + Buffer.byteLength(c, 'utf8'), 0) + ' 字节）；core 内联 ' + coreFiles.length + ' 个文件');
+const bundleText = '/* Mochi 合并包：按构建顺序拼接 ' + extFiles.length + ' 个功能件，每件独立 IIFE+try/catch */\n' + extWrapped.join('\n');
+writeFileSync(join(jsDir, BUNDLE_FILE), bundleText);
+console.log('已外置 ' + extFiles.length + ' 个 JS → js/（自愈兜底保留）+ 合并包 js/' + BUNDLE_FILE + '（' + Math.round(bundleText.length / 1024) + 'KB）；core 内联 ' + coreFiles.length + ' 个文件');
 const out = join(root, 'index.html');
 writeFileSync(out, html);
 console.log('已生成 index.html（' + html.length + ' 字节，' + (html.split('\n').length) + ' 行）');
@@ -375,7 +383,9 @@ if (!sw.includes('const BUILD_INFO')) {
 }
 // PERF-PLAN 阶段 1：sw 预缓存带上外置清单（离线首启/弱网首装才有 ext 可用）；
 // 完整性校验 isCompleteHtml 只对 index 生效（sw.js isIndexUrl 分支），js 文件直接 c.put。
-sw = sw.replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = ' + JSON.stringify(['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png'].concat(extFiles.map(f => './js/' + f))) + ';');
+// PERF-PLAN §6：install 预缓存只带合并包（83 件逐文件预缓存＝弱网首装连接池打满且每件一个慢请求）；
+// 单文件仍部署在 js/ 下，专供 __mochiExtFail 自愈链按需重拉（正常加载永不再请求它们）
+sw = sw.replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = ' + JSON.stringify(['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './js/' + BUNDLE_FILE]) + ';');
 writeFileSync(swPath, sw);
 console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版本: mochi-' + buildStamp + '）');
 } else {
@@ -535,7 +545,7 @@ const FIX_SENTINELS = [
   { name: '#1221b 解析失败分档亮真实原因（删回笼统「无效的数据文件」＝截断/损坏/选错文件无从诊断、用户没法带原因反馈）', file: 'js/data-backup.js', needle: "if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {" },
   /* ==== 2026-09-19 #860 iOS 全机型「打开就卡、零数据也卡」根治＝PERF-PLAN 阶段 1b core 全外置：index 只留 静态HTML+CSS+3 件系统件（device/pwa/ver-check，~176KB）+≤4KB boot 段，其余 79 件走 <script defer src="js/…">（一文件一资源，消融实证合成大块把单次冻结峰值 308→481ms）；顺序=jsFiles 原序（D2，执行时序回单包语义）；sw install 分波预缓存；device.js 模块体检瞬态豁免只认启动后 15s；boot 看门狗 3s/8s 查 __mochiDataReady 挂重试条（弱网首访开屏不再永久定格）。六份 iOS 诊断共同形态：DCL 1.8~8.3s、与数据量无关；消融实测内联搬出即 DCL −513ms / index 4534→1223KB ====*/
   { name: '#860a 开屏看门狗在位（删＝全外置后弱网首访开屏永久定格、无「点此重试」逃生口）', file: 'index.html', needle: 'window.__mochiBootRetry' },
-  { name: '#860b core 全外置主锚（chat.js 必须是 defer 外置标签；回退＝2.9MB 内联塞回 HTML，iOS 解析期整段同步编译、打开就卡复发）', file: 'index.html', needle: '<script defer src="js/chat.js"' },
+  { name: '#860b core 全外置主锚（chat.js 必须是 defer 外置标签；回退＝2.9MB 内联塞回 HTML，iOS 解析期整段同步编译、打开就卡复发）', file: 'index.html', needle: '<script defer src="js/app.js"' },
   { name: '#860c boot 时刻戳（删＝device.js 模块体检的「弱网瞬态 vs 真没加载」时间闸失效，79 件 defer 全被当硬故障或反之）', file: 'index.html', needle: '__mochiBootAt = Date.now();' },
   { name: '#860d sw install 分波预缓存（每波 12；删＝85 项一波全并发把弱网首装连接池打满、新缓存打空）', file: 'pwa/sw.js', needle: 'i += 12' },
   { name: '#860e 模块体检瞬态窗（device.js；删＝弱网 15s 后仍缺的文件不再按硬故障报，诊断把死模块说成弱网）', file: 'js/device.js', needle: 'const transient = (Date.now() - (window.__mochiBootAt || 0)) < 15000;' },

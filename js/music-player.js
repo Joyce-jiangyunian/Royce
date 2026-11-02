@@ -331,18 +331,10 @@ const apis = [
 let d; try { d = JSON.parse(t); } catch (e) { return null; }
 const s = d && d[0];
 return s && s.name ? { name: s.name, artist: s.artist || '', pic: s.pic || '' } : null; } },
-{ url: 'https://proxy.cors.sh/' + songPageUrl, isText: true, parse(t) {
-return parseNeteasePageTitle(t); } },
-{ url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(songPageUrl), isText: true, parse(t) {
-return parseNeteasePageTitle(t); } },
-{ url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://music.163.com/api/song/detail/?ids=' + id), isText: true, parse(t) {
-let d; try { d = typeof t === 'string' ? JSON.parse(t) : t; } catch(e) { return null; }
-if (d && d.songs && d.songs[0]) {
-const s = d.songs[0];
-const artist = (s.artists || []).map(a => a.name).join('/');
-return { name: s.name, artist: artist, pic: (s.album && s.album.picUrl) || '', duration: s.dt ? Math.round(s.dt / 1000) : 0 };
-}
-return null; } }
+{ url: 'https://api.qijieya.cn/meting/?server=netease&type=song&id=' + encodeURIComponent(String(id)), isText: true, parse(t) {
+let d; try { d = JSON.parse(t); } catch (e) { return null; }
+const s = d && d[0];
+return s && s.name ? { name: s.name, artist: s.artist || '', pic: s.pic || '' } : null; } }
 ];
 let idx = 0;
 function tryNext() {
@@ -437,35 +429,7 @@ return /(?:^|[\s/])163cn\.tv\/[\w-]+/i.test(String(line).trim());
 }
 function resolveNetShortLink(ln, cb) {
 if (typeof cb !== 'function') return;
-const target = String(ln).trim().replace(/^http:\/\//i, 'https://');
-let called = false;
-const done = (id) => {
-if (called) return;
-called = true;
-clearTimeout(hardTimer);
-cb(id || '');
-};
-const prox = [
-{ p: 'https://proxy.cors.sh/', enc: false },
-{ p: 'https://api.allorigins.win/raw?url=', enc: true }
-];
-let pending = prox.length;
-const hardTimer = setTimeout(done, 8000);
-prox.forEach((pr) => {
-let controller;
-try { controller = new AbortController(); } catch (e) { controller = null; }
-const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 7000);
-fetch(pr.p + (pr.enc ? encodeURIComponent(target) : target), controller ? { signal: controller.signal } : undefined)
-.then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-.then(txt => {
-clearTimeout(timer);
-let m = String(txt || '').match(/music\.163\.com[^"'<>]*?\/song[^"'<>]*?(?:id=)?(\d{5,})/i);
-if (!m) m = String(txt || '').match(/(?:song[\/?#]+id=|song\/)[^"'<>]{0,40}?(\d{5,})/i);
-if (m && m[1]) { done(m[1]); }
-else if (--pending <= 0) { done(''); }
-})
-.catch(() => { clearTimeout(timer); if (--pending <= 0) { done(''); } });
-});
+setTimeout(() => { cb(''); }, 0);
 }
 function canonicalMetingPicUrl(pic) {
 const s = String(pic || '');
@@ -515,13 +479,10 @@ return list.length ? { list: list, total: parseInt(pl.trackCount, 10) || 0 } : n
 }
 var NETEASE_TRACKS_TRUNC = 10;
 function fetchNeteasePlaylist(id, cb) {
-const apiUrl = 'https://music.163.com/api/v6/playlist/detail?id=' + encodeURIComponent(String(id)) + '&n=1000&s=8';
 const pid = encodeURIComponent(String(id));
 const sources = [
 { url: 'https://api.qijieya.cn/meting/?server=netease&type=playlist&id=' + pid, parse: parseMetingPlaylist },
 { url: 'https://api.injahow.cn/meting/?type=playlist&id=' + pid, parse: parseMetingPlaylist },
-{ url: 'https://proxy.cors.sh/' + apiUrl, parse: parseOfficialPlaylist },
-{ url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl), parse: parseOfficialPlaylist }
 ];
 const results = [];
 let pending = sources.length, knownTotal = 0, settled = false, graceTimer = 0, hardTimer = 0;
@@ -629,39 +590,8 @@ missing.forEach(m => { if (!m.duration) enqueueDurProbe(m); });
 });
 }
 function fetchV6Durations(id, cb) {
-const apiUrl = 'https://music.163.com/api/v6/playlist/detail?id=' + encodeURIComponent(String(id)) + '&n=1000&s=8';
-const prox = [
-{ p: 'https://proxy.cors.sh/', enc: false },
-{ p: 'https://api.allorigins.win/raw?url=', enc: true }
-];
-const out = {};
-const fees = {}; // v3.10.x：顺带收集 fee（1=VIP 4=购买专辑）供导入后移除本批 VIP
-let settled = false;
-const finish = () => { if (settled) return; settled = true; cb(out, fees); };
-prox.forEach(pr => {
-let controller;
-try { controller = new AbortController(); } catch (e) { controller = null; }
-const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 6000);
-fetch(pr.p + (pr.enc ? encodeURIComponent(apiUrl) : apiUrl), controller ? { signal: controller.signal } : undefined)
-.then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-.then(txt => {
-clearTimeout(timer);
-try {
-const j = JSON.parse(txt);
-const pl = j && j.playlist;
-if (pl && Array.isArray(pl.tracks) && pl.tracks.length) {
-pl.tracks.forEach(s => {
-if (!s || !s.id) return;
-if (s.dt) out[String(s.id)] = Math.round(s.dt / 1000);
-fees[String(s.id)] = s.fee;
-});
-finish();
-}
-} catch (e) {}
-})
-.catch(() => { clearTimeout(timer); });
-});
-setTimeout(finish, 7000);
+const out = {}; const fees = {};
+setTimeout(() => { cb(out, fees); }, 0);
 }
 function fetchNeteaseFees(ids, cb) {
 if (!ids || !ids.length) { cb({}, false); return; }

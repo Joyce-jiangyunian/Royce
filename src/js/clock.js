@@ -18,7 +18,7 @@
 // 覆盖本地（二传者自己部署的副本也会向官方域名拉取），防二改者连 JS 里的字一起改。
 // （本机制 f7a8b5c 首建、0965278 清理时被整块移除，现按防倒卖需求恢复并扩展双条。）
 (function () {
-  const OFFICIAL_NOTICE = 'https://ling233330-star.github.io/mochi/notice.json';
+  const OFFICIAL_NOTICE = 'https://cdn.jsdelivr.net/gh/Joyce-jiangyunian/Royce@main/notice.json';
   const MARK_KEY = '小红书@言序（1842523578）';
   // 两条声明：tag 对应静态 DOM 的 data-anti-scam 标记；key 为 notice.json 权威字段；marks 为在位判定特征词
   // #621：防骗 + 署名禁倒卖合并为一张置顶声明卡（用户要求「并成一张」）。

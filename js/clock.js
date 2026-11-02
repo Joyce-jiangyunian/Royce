@@ -11,7 +11,7 @@ update();
 setInterval(update, 15000); // 每 15 秒校准一次
 })();
 (function () {
-const OFFICIAL_NOTICE = 'https://ling233330-star.github.io/mochi/notice.json';
+const OFFICIAL_NOTICE = 'https://cdn.jsdelivr.net/gh/Joyce-jiangyunian/Royce@main/notice.json';
 const MARK_KEY = '小红书@言序（1842523578）';
 const BARS = [
 { tag: '1', title: '免费 · 署名 · 防倒卖', keys: ['alert', 'alert2'],

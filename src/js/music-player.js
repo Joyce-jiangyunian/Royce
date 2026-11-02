@@ -436,23 +436,14 @@
           let d; try { d = JSON.parse(t); } catch (e) { return null; }
           const s = d && d[0];
           return s && s.name ? { name: s.name, artist: s.artist || '', pic: s.pic || '' } : null; } },
-      // v3.9.x：proxy.cors.sh（Cloudflare Workers，稳定可用）放首位；allorigins/corsproxy 兜底
-      { url: 'https://proxy.cors.sh/' + songPageUrl, isText: true, parse(t) {
-          return parseNeteasePageTitle(t); } },
-      // 1-2：CORS 代理抓歌曲页面 HTML，解析 <title>
-      { url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(songPageUrl), isText: true, parse(t) {
-          return parseNeteasePageTitle(t); } },
-      // v3.26.x：corsproxy.io 已整体 401（改为要求注册 API key，无 key 一律拒绝），
-      // 留着只会刷「网络失败 401」日志（vivo Y35+Edge 诊断实证），移除。
-      // 3：原网易云 API 直链（需 Cookie，多数返回 400，仅作兜底）
-      { url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://music.163.com/api/song/detail/?ids=' + id), isText: true, parse(t) {
-          let d; try { d = typeof t === 'string' ? JSON.parse(t) : t; } catch(e) { return null; }
-          if (d && d.songs && d.songs[0]) {
-            const s = d.songs[0];
-            const artist = (s.artists || []).map(a => a.name).join('/');
-            return { name: s.name, artist: artist, pic: (s.album && s.album.picUrl) || '', duration: s.dt ? Math.round(s.dt / 1000) : 0 };
-          }
-          return null; } }
+      // FIX 2026-11-02：公共 CORS 代理 cors.sh 已域名级失联、allorigins 常年超时
+      // （文件内多处注释早有记载，但这两路仍留在链上给每次链接导入刷「网络失败」日志并白白等 8s），
+      // 移除这两路；换成同族 meting 镜像 qijieya（返回结构与 injahow 一致，实测可用、CORS 开放、大陆直连），
+      // injahow 首选 + qijieya 兜底，仍保持双源。
+      { url: 'https://api.qijieya.cn/meting/?server=netease&type=song&id=' + encodeURIComponent(String(id)), isText: true, parse(t) {
+          let d; try { d = JSON.parse(t); } catch (e) { return null; }
+          const s = d && d[0];
+          return s && s.name ? { name: s.name, artist: s.artist || '', pic: s.pic || '' } : null; } }
     ];
     let idx = 0;
     function tryNext() {
@@ -590,38 +581,12 @@
     return /(?:^|[\s/])163cn\.tv\/[\w-]+/i.test(String(line).trim());
   }
   function resolveNetShortLink(ln, cb) {
+    // FIX 2026-11-02 Bug2：本函数靠经公共 CORS 代理跟随 302 取网易云页面再抠歌曲 ID，
+    // 而 cors.sh 域名已注销、allorigins 实测常年 6s+ 超时（2026-11-02 三路实测全灭），
+    // 已实际等于「空等 7~8 秒后必然 cb('')」。移除死代理链改为立即失败：短链原样入库、
+    // 由播放兜底提示，行为与代理已挂的现在完全一致，只是不再白等。公共代理按 #254 结论不再回来。
     if (typeof cb !== 'function') return;
-    const target = String(ln).trim().replace(/^http:\/\//i, 'https://');
-    let called = false;
-    const done = (id) => {
-      if (called) return;
-      called = true;
-      clearTimeout(hardTimer);
-      cb(id || '');
-    };
-    // 与 fetchV6Durations 同款 CORS 代理链（跟随 302 拿到最终页面 HTML）
-    const prox = [
-      { p: 'https://proxy.cors.sh/', enc: false },
-      { p: 'https://api.allorigins.win/raw?url=', enc: true }
-    ];
-    let pending = prox.length;
-    const hardTimer = setTimeout(done, 8000);
-    prox.forEach((pr) => {
-      let controller;
-      try { controller = new AbortController(); } catch (e) { controller = null; }
-      const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 7000);
-      fetch(pr.p + (pr.enc ? encodeURIComponent(target) : target), controller ? { signal: controller.signal } : undefined)
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-        .then(txt => {
-          clearTimeout(timer);
-          // 最终页面里找网易云歌曲页/ID：?id=12345、#/song?id=12345、/song/12345、og:url
-          let m = String(txt || '').match(/music\.163\.com[^"'<>]*?\/song[^"'<>]*?(?:id=)?(\d{5,})/i);
-          if (!m) m = String(txt || '').match(/(?:song[\/?#]+id=|song\/)[^"'<>]{0,40}?(\d{5,})/i);
-          if (m && m[1]) { done(m[1]); }
-          else if (--pending <= 0) { done(''); }
-        })
-        .catch(() => { clearTimeout(timer); if (--pending <= 0) { done(''); } });
-    });
+    setTimeout(() => { cb(''); }, 0);
   }
   // 网易云 meting 播放直链固定走 injahow（neteaseMetingUrl），封面同理归一到 injahow
   // 图片代理：#216 的 COVER_PROXY_RE 迁移链只认这个域名，会把代理 URL 解析成网易 CDN
@@ -681,7 +646,7 @@
   // 见到它就说明这一路很可能只拿到了首屏，不能当完整歌单收口。
   var NETEASE_TRACKS_TRUNC = 10;
   function fetchNeteasePlaylist(id, cb) {
-    const apiUrl = 'https://music.163.com/api/v6/playlist/detail?id=' + encodeURIComponent(String(id)) + '&n=1000&s=8';
+    // apiUrl 仅原代理兜底使用，代理链移除后一并清掉（fix 同上）
     const pid = encodeURIComponent(String(id));
     const sources = [
       // #263：按 trackIds 批量补歌曲详情的 meting 实例——用户自建歌单也给全量。
@@ -690,14 +655,10 @@
       { url: 'https://api.qijieya.cn/meting/?server=netease&type=playlist&id=' + pid, parse: parseMetingPlaylist },
       // 与播放同源的 meting 主实例（官方榜单全量；用户自建歌单只有 detail 首屏 10 首）
       { url: 'https://api.injahow.cn/meting/?type=playlist&id=' + pid, parse: parseMetingPlaylist },
-      // #709：原第三路 meting 镜像 api.i-meto.com 已死（2026-09-17 实测整体 401，与
-      // corsproxy.io 401 同族），留着只会给每次歌单导入刷一条「网络失败」日志，移除。
-      // 兜底：网易官方 v6 详情（tracks 带 fee/时长，trackCount 是全量曲目数，供缺口如实
-      // 提示）。公共代理是持续死亡的消耗品（#254：cors.sh 域名注销、allorigins 522、
-      // corsproxy.io 401），排在 meting 之后＝同源数时不抢 meting 那条既有链路，只有给出
-      // 更长列表（代理活着且 tracks 没被截断）时才胜出，顺带自动用上导入时 VIP 前置过滤
-      { url: 'https://proxy.cors.sh/' + apiUrl, parse: parseOfficialPlaylist },
-      { url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl), parse: parseOfficialPlaylist }
+      // FIX 2026-11-02 Bug2：官方 v6 详情只能经公共 CORS 代理取，而 cors.sh 域名已注销、
+      // allorigins 实测常年 6s+ 超时（2026-11-02 三路代理实测全灭），这路兜底已整体失效；
+      // 留着只会给每次歌单导入刷两条「网络失败」日志并各空等一个超时。移除——meting 双源
+      // （qijieya + injahow）已足够承接，与 #709 i-meto、#254 corsproxy.io 的移除同思路。
     ];
     const results = [];
     let pending = sources.length, knownTotal = 0, settled = false, graceTimer = 0, hardTimer = 0;
@@ -831,41 +792,12 @@
   // URL，大陆直连、无需 CORS 代理、手机浏览器同样可用），并发 4 条后台跑，逐条写回
   // 并刷新界面，实现「导入后一次性把时长加载出来」；探测失败（如 VIP 歌）保持 00:00。
   function fetchV6Durations(id, cb) {
-    const apiUrl = 'https://music.163.com/api/v6/playlist/detail?id=' + encodeURIComponent(String(id)) + '&n=1000&s=8';
-    // v3.9.x：codetabs 已失效（超时），改用 proxy.cors.sh（Cloudflare Workers，稳定）
-    const prox = [
-      { p: 'https://proxy.cors.sh/', enc: false },
-      { p: 'https://api.allorigins.win/raw?url=', enc: true }
-    ];
-    const out = {};
-    const fees = {}; // v3.10.x：顺带收集 fee（1=VIP 4=购买专辑）供导入后移除本批 VIP
-    let settled = false;
-    const finish = () => { if (settled) return; settled = true; cb(out, fees); };
-    prox.forEach(pr => {
-      let controller;
-      try { controller = new AbortController(); } catch (e) { controller = null; }
-      const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 6000);
-      fetch(pr.p + (pr.enc ? encodeURIComponent(apiUrl) : apiUrl), controller ? { signal: controller.signal } : undefined)
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-        .then(txt => {
-          clearTimeout(timer);
-          try {
-            const j = JSON.parse(txt);
-            const pl = j && j.playlist;
-            if (pl && Array.isArray(pl.tracks) && pl.tracks.length) {
-              pl.tracks.forEach(s => {
-                if (!s || !s.id) return;
-                if (s.dt) out[String(s.id)] = Math.round(s.dt / 1000);
-                fees[String(s.id)] = s.fee;
-              });
-              finish();
-            }
-          } catch (e) {}
-        })
-        .catch(() => { clearTimeout(timer); });
-    });
-    // 兜底：最多等 7s（代理全挂时快速收尾，交给音频探测）
-    setTimeout(finish, 7000);
+    // FIX 2026-11-02 Bug2：v6 官方详情只能经公共 CORS 代理取，而 cors.sh 域名已注销、
+    // allorigins 实测常年 6s+ 超时（2026-11-02 三路实测全灭），本函数已实际等于「7s 后必然
+    // 收空」。清掉死代理链立即收口，时长统一交给与播放同源的 <audio preload=metadata> 探测
+    // （上方注释已写明该兜底），与 fetchNeteaseFees #254 去代理化同思路，保持单一依赖面。
+    const out = {}; const fees = {};
+    setTimeout(() => { cb(out, fees); }, 0);
   }
   // ================= 网易云会员歌曲批量检测与清理 =================
   // v3.14.x：存量库清理入口——导入时的 VIP 过滤（importNeteasePlaylist/
