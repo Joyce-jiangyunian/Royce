@@ -10529,105 +10529,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
 .set-row .txt { font-size: calc(14px + var(--mochi-text-adj, 0px)); }
 .set-row .txt .sub { font-size: calc(11.5px + var(--mochi-text-adj, 0px)); }
 .gc-set-row .txt { font-size: calc(14px + var(--mochi-text-adj, 0px)); }
-.splash.eqz-active .splash-box,
-.splash.eqz-active .splash-footcard { display: none; }
-.eqz-page {
-flex: 1; min-height: 0; width: 100%; box-sizing: border-box;
-display: flex; flex-direction: column;
-text-align: left;
-}
-.eqz-head {
-padding: 0 0 12px;
-border-bottom: 1px solid var(--sp-line, rgba(0, 0, 0, .08));
-}
-.eqz-back {
-appearance: none; -webkit-appearance: none;
-display: inline-block; margin: 0 0 10px; padding: 3px 11px;
-font-size: 11.5px; font-weight: 700; line-height: 1.6; letter-spacing: 1px;
-color: var(--muted, #8a8a8a); background: none; cursor: pointer; touch-action: manipulation;
-border: 1px solid var(--card-border, rgba(0, 0, 0, .1)); border-radius: 999px;
-}
-.eqz-title { font-size: 15px; font-weight: 800; color: var(--ink, #111); letter-spacing: 1px; text-align: center; }
-.eqz-sub { margin-top: 8px; font-size: 11.5px; line-height: 1.75; color: var(--muted, #8a8a8a); white-space: normal; }
-.eqz-progress { margin-top: 10px; font-size: 11px; font-weight: 700; color: var(--sp-ink, #111); text-align: center; letter-spacing: 1px; }
-.eqz-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.eqz-view[hidden] { display: none; }
-.eqz-view .eqz-scroll { flex: 1; }
-#eqz-view-result { overflow-y: auto; scrollbar-width: none; }
-#eqz-view-result::-webkit-scrollbar { display: none; }
-.eqz-scroll {
-min-height: 0; overflow-y: auto;
-padding: 14px 18px 6px; scrollbar-width: none; -ms-overflow-style: none;
-}
-.eqz-scroll::-webkit-scrollbar { display: none; }
-.eqz-q { margin: 0 0 16px; }
-.eqz-qh { font-size: 12.5px; font-weight: 700; color: var(--ink, #111); line-height: 1.7; margin-bottom: 8px; }
-.eqz-idx { margin-right: 4px; }
-.eqz-tag {
-display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px;
-font-size: 10px; font-weight: 700; vertical-align: 1px;
-color: var(--soft-ink, #555); background: var(--static-bg, rgba(0, 0, 0, .06));
-}
-.eqz-opt {
-display: flex; gap: 8px; align-items: flex-start; width: 100%;
-padding: 9px 11px; margin-bottom: 6px;
-border: 1px solid var(--card-border, rgba(0, 0, 0, .1)); border-radius: 11px;
-background: var(--card-bg-97, transparent);
-font-size: 12.5px; line-height: 1.65; color: var(--soft-ink, #555);
-font-family: inherit; text-align: left; cursor: pointer; position: relative;
-appearance: none; -webkit-appearance: none; touch-action: manipulation;
--webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
-}
-.eqz-opt::before {
-content: ''; flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; box-sizing: border-box;
-border: 1.5px solid var(--card-border, rgba(0, 0, 0, .25)); background: transparent;
-}
-.eqz-opt.eqz-check::before { border-radius: 4px; }
-.eqz-opt.eqz-radio::before { border-radius: 50%; }
-.eqz-opt.is-sel::before { border-color: var(--sp-ink, #111); }
-.eqz-opt.eqz-radio.is-sel::before {
-background: radial-gradient(circle, var(--sp-ink, #111) 0, var(--sp-ink, #111) 2.5px, transparent 3px);
-}
-.eqz-opt.eqz-check.is-sel::before { background: var(--sp-ink, #111); }
-.eqz-opt.eqz-check.is-sel::after {
-content: ''; position: absolute; left: 15px; top: 14px; width: 8px; height: 4px; box-sizing: border-box;
-border-left: 2px solid var(--btn-ink, #fff); border-bottom: 2px solid var(--btn-ink, #fff);
-transform: rotate(-45deg); transform-origin: center;
-}
-.eqz-opt-t { flex: 1; white-space: normal; word-break: break-word; }
-.eqz-opt.is-sel { border-color: var(--sp-ink, #111); background: var(--sp-soft, rgba(17, 17, 17, .055)); color: var(--ink, #111); }
-.eqz-foot {
-padding: 10px 18px calc(16px + var(--mochi-safe-bottom, env(safe-area-inset-bottom, 0px)));
-border-top: 1px solid var(--sp-line, rgba(0, 0, 0, .08));
-}
-.eqz-note { margin-bottom: 8px; font-size: 11.5px; line-height: 1.6; color: var(--muted, #8a8a8a); white-space: normal; }
-.eqz-btn {
-width: 100%; padding: 12px; border: none; border-radius: 12px;
-background: var(--btn-bg, #111); color: var(--btn-ink, #fff);
-font-size: 15px; font-weight: 700; cursor: pointer; touch-action: manipulation;
-}
-.eqz-btn:active { transform: scale(.98); opacity: .9; }
-.eqz-btn-ghost {
-margin-top: 8px; background: none; color: var(--soft-ink, #555);
-border: 1px solid var(--card-border, rgba(0, 0, 0, .1));
-}
-.eqz-rs { padding: 20px 18px 8px; }
-.eqz-rs-t { font-size: 17px; font-weight: 800; margin: 0 0 12px; }
-.eqz-rs-ok .eqz-rs-t { color: var(--ok-ink, #1c7c3c); }
-.eqz-rs-bad .eqz-rs-t { color: var(--danger-ink, #a32d2d); }
-.eqz-rs-d { font-size: 12px; line-height: 1.7; color: var(--muted, #8a8a8a); margin: 0 0 12px; white-space: normal; }
-.eqz-rs-list { margin: 0 0 16px; }
-.eqz-rs-li {
-padding: 9px 12px; margin-bottom: 8px; font-size: 12.5px; line-height: 1.6;
-color: var(--soft-ink, #555);
-border: 1px solid var(--danger-ink, #a32d2d); border-radius: 11px;
-white-space: normal; word-break: break-word;
-}
-.eqz-rs-n { font-weight: 800; color: var(--danger-ink, #a32d2d); margin-right: 6px; }
-.splash.rules-open { overflow-y: auto; }
-.splash.rules-open > #entry-rules-page [hidden] { display: none !important; }
-.splash.rules-open > #entry-rules-page #nrz-prev[disabled] { opacity: .32; }
-.splash.eqz-active > .eqz-page { padding-top:var(--mochi-safe-top, env(safe-area-inset-top, 0px)); }
 </style>
 </head>
 <body>
@@ -10820,7 +10721,6 @@ white-space: normal; word-break: break-word;
           <div class="splash-source-line">除随机回复的基础逻辑、基础框架外（灵感来源为 milk 字卡 · 小红书 @milk（2777299956）），以下功能为借鉴：</div>
           <div class="splash-source-line splash-lic-item">帮我决定、多人决定功能：借鉴自小红书 @FelixFelicis（9416318007）</div>
           <div class="splash-source-line splash-lic-item">公用字卡+专享字卡模式：借鉴自小红书 @默玉（8012400317）</div>
-          <!-- 2026-10-15（作者直派「在公告 灵感借鉴 里新增入站问卷灵感来源」）：入站问卷＝需正确回答问卷才会进入使用网站模式 -->
           <div class="splash-source-line splash-lic-item">需正确回答问卷才会进入使用网站模式 @小狗咖啡猫（5435843310）</div>
           <div class="splash-source-line">以下功能源于网络上已有的类似想法，但设计均由我独立完成：</div>
           <div class="splash-source-line splash-lic-item">情绪字卡：源于早期网络上的类似提议（有人建议在聊天中加入情绪字卡以方便交流，小红书 @心汋是颗彩虹多宝糖（9725312970）也提过这个模式）</div>
@@ -10985,7 +10885,6 @@ white-space: normal; word-break: break-word;
                原第 14 章（后台通知相关设置）顺延为第 15 章（#1500 目录统一编号口径，阿拉伯数字顺延） -->
           <div class="splash-sec-wrap">
             <p class="splash-sec">14、10.22 更新</p>
-            <p class="splash-bullet">本次没有新增难题问卷，但新增了开屏前的《本站入站须知》和《入站氛围确认（8个题目）》。总之就是一些原则问题，规则从来都不是卡正常使用。</p>
           </div>
           <!-- #1060（2026-09-23 用户直派「关于后台通知相关设置也放在公告里，放在公告的最后新增一个目录」）：
                与在线权威源 src/pwa/notice.json 的 sections 末条同口径（在线整段替换本段；此处为断网/弱网兜底） -->
@@ -11183,7 +11082,7 @@ white-space: normal; word-break: break-word;
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1793605205300" data-version="v8.0">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1793608602731" data-version="v8.0">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -18048,7 +17947,7 @@ white-space: normal; word-break: break-word;
   // v3.5.123：readonly 起手（防 Chrome 密码弹条破坏表单签名）——这里立即解除，
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
-window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","accounting.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","entry-quiz.js","entry-rules.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","accounting.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
+window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","accounting.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"]; window.__mochiExtFiles = ["idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","energy-check.js","flash-check.js","img-compress.js","img-ingest.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","fav-reason-data.js","fav-reason.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","accounting.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","storage-guide.js","mobile-adapt.js"];
 (function () { try {
 (function () {
 try { window.__jsErrors = window.__jsErrors || []; } catch (e0) {}
@@ -22840,4 +22739,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvyy89pw -->
+<!-- __MOCHI_EOF__ mvz0936z -->

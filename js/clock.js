@@ -386,12 +386,6 @@ if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagatio
 }
 function finishEnter() {
 if (splash.classList.contains('hide')) return;
-try {
-if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
-window.mochiEntryQuizGate(finishEnter);
-return;
-}
-} catch (e) {}
 if (!seenToday) {
 try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
 }

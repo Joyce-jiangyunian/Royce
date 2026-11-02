@@ -112,8 +112,8 @@ function minifyCss(code) {
 }
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
-const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css', 'entry-quiz.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'entry-quiz.js', 'entry-rules.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'fav-reason-data.js', 'fav-reason.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'accounting.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
+const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'fav-reason-data.js', 'fav-reason.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'accounting.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
 
 // ===== PERF-PLAN 阶段 1：JS 外置化（2026-09-18）=====
 // 首开「3.8MB 内联 JS 主线程整段解析执行」是 iOS/中低端安卓卡顿的结构性大头
@@ -994,28 +994,13 @@ const FIX_SENTINELS = [
   { name: '应用锁设置页开关行（template.html #applock-en，防并行会话把设置入口改丢）', file: 'template.html', needle: 'id="applock-en"' },
   { name: '开屏问答门（applock.js 问答题门禁，防并行会话删除——隐私门即失效）', file: 'js/applock.js', needle: 'applock-qaskip' },
   { name: '开屏问答门设置行（template.html #applock-qa-en，防并行会话把入口改丢）', file: 'template.html', needle: 'id="applock-qa-en"' },
-  { name: '#1550 入站问卷闸门本体（开屏点击进入后跳转的整页问卷，答对全部题目才放行；删掉即泄露密码者可直接进入）', file: 'js/entry-quiz.js', needle: 'window.mochiEntryQuizGate = function' },
-  { name: '#1578 入站须知问卷本体（开屏公告前的一次性入站确认层，删掉＝须知与氛围确认被整体跳过）', file: 'js/entry-rules.js', needle: 'window.__entryRulesReady = true' },
   { name: '#1578 入站须知放行根键进 migrateLegacy 排除清单（rules-notice-pass 全局根键不被迁进 default 并删根键，否则每次刷新都要重答）', file: 'js/contacts.js', needle: "'rules-notice-pass'," },
-  { name: '#1578 入站须知正文含三条基本规则（署名/禁拉踩/禁泄露答案密码，文案被删＝规则声明丢失）', file: 'js/entry-rules.js', needle: '禁止泄露问卷答案和开屏密码' },
-  { name: '#1578 入站须知最终确认按钮（删掉＝无法完成接受动作、须知页死锁）', file: 'js/entry-rules.js', needle: '我已阅读并接受以上规则，继续。' },
-  { name: '#1579 须知第二段按作者直派改口「可能很多人觉得」（回退＝改口丢失）', file: 'js/entry-rules.js', needle: '可能很多人觉得免费就不该有规矩' },
   { name: '#1579 公告新增「14、10.22 更新」章（在线权威源 notice.json，两源必须同改）', file: 'pwa/notice.json', needle: '"h": "14、10.22 更新"' },
   { name: '#1579 公告「10.22 更新」章离线兜底同口径（template.html 静态块，只改在线源＝断网用户看不到）', file: 'template.html', needle: '<p class="splash-sec">14、10.22 更新</p>' },
   { name: '#1579 公告「10.22 更新」章正文（删掉＝更新说明丢失）', file: 'pwa/notice.json', needle: '本次没有新增难题问卷' },
   { name: '#1579 原通知章顺延重编号 14→15·在线源（只改一处＝两份目录编号分叉）', file: 'pwa/notice.json', needle: '"h": "15、关于后台通知相关设置' },
   { name: '#1579 原通知章顺延重编号 14→15·离线兜底（同上）', file: 'template.html', needle: '<p class="splash-sec">15、关于后台通知相关设置' },
-  { name: '#1581 结果视图滚动规则已删 legacy 动量旗标（#707/#1411 同族：部分内核惯性滚动内容裁剪＝「第 7 题以后刷不出来」；旗标回流＝插回本段中间、本形状锚即红）', file: 'css/entry-quiz.css', needle: '#eqz-view-result { overflow-y: auto; scrollbar-width: none; }' },
-  { name: '#1581 答题滚动区 .eqz-scroll 已删 legacy 动量旗标（同上；旗标回流＝overflow 与 padding 之间插旗、本形状即变）', file: 'css/entry-quiz.css', needle: 'min-height: 0; overflow-y: auto;\npadding: 14px 18px 6px;' },
-  { name: '#1581 .eqz-page 页面级滚动兜底在位（多层 flex 嵌套 min-height 不传播的内核上由本层接管滚动＝内容可达；删掉＝兜底失效）', file: 'css/entry-quiz.css', needle: '.splash.rules-open { overflow-y: auto; }' },
-  { name: '#1583 须知页一题一屏·分步状态在位（任何时刻只有一屏内容＝不依赖滚动也能走完 8 题；删掉＝退回长页，部分机型又到不了第 8 题）', file: 'js/entry-rules.js', needle: 'const LAST_STEP = total + 1;' },
-  { name: '#1583 靠 hidden 切屏必须配救援（个别内核/[hidden] 被 display 覆盖＝8 题一起显示、底栏被挤走）', file: 'css/entry-quiz.css', needle: '.splash.rules-open > #entry-rules-page [hidden] { display: none !important; }' },
-  { name: '#1582 须知页滚动作用域只挂 rules-open（entry-rules.js 打开时加、cleanup 时摘；删掉＝整页滚动不生效）', file: 'js/entry-rules.js', needle: "sp.classList.add('rules-open');" },
   { name: '#1582 强制刷新弹窗·本版一次性强提醒（作者直派「必定更新刷新」；删掉＝只能靠 version.ts 比对，旧缓存用户可能永远收不到提醒）', file: 'js/update-remind.js', needle: 'function forceOnce()' },
-  { name: '#1583 须知页自检入口（作者「别再猜」：页头一点即出本机真实几何数据可复制回传；删掉＝再出同类报障只能继续猜）', file: 'js/entry-rules.js', needle: "el.querySelector('#nrz-diag-btn')" },
-  { name: '#1585 须知放行记录三路冗余·cookie 通道（LS 写不进/被清的机器上唯一能同步命中的一路；删掉＝那些机型每次重开都要重答）', file: 'js/entry-rules.js', needle: "const CK = 'mochi_rnp';" },
-  { name: '#1585 开层前先异步问库（同步读空≠没记录：启动回填比本模块晚，记录只在 IDB 的机器会天天重答；删掉＝回到原 bug）', file: 'js/entry-rules.js', needle: "window.idbGet(G + ':' + K_PASS)" },
-  { name: '#1585 证据迟到时自动收层（已盖层但库里证明答过，且用户还没动过选项＝当场摘掉，不让人白答）', file: 'js/entry-rules.js', needle: 'pageEl.__untouched' },
   { name: '#1582 强提醒标记进 migrateLegacy 排除清单（update-remind-force 全局根键不被迁走/删根键，否则每次打开都重复弹）', file: 'js/contacts.js', needle: "'update-remind-force'," },
   // ==== 2026-10-22 #1584（作者两台实机报障：①「开屏完全看不见底部的【我已阅读并知晓】，无法点击」；
   //   ②入站问卷截图只有三个选项、看不到题目「完全无法答题」）。同一族根因＝开屏/须知整页层不认
@@ -1024,24 +1009,10 @@ const FIX_SENTINELS = [
   //   「整页可滚兜底」——任一被改回 inset:0 纯布局视口定高，两台机的症状即复发。
   { name: '#1584a 开屏高度取实测可视高（删＝inset:0 按布局视口定高，底栏落在系统手势条/浏览器工具条盖住的一条里＝「我已阅读并知晓」永远点不到）', file: 'css/base.css', needle: 'height:var(--mochi-vv-h, 100dvh);' },
   { name: '#1584b 可视高由 clock.js 实测写入（删＝变量恒缺位退回 100dvh，不认 dvh 的内嵌浏览器仍按布局视口撑高）', file: 'js/clock.js', needle: "setProperty('--mochi-vv-h'" },
-  { name: '#1584c 两套问卷整页层顶部避让状态栏/安全区（删＝边缘到边形态下题目标题被系统状态栏盖住＝只看到选项、没法答题；变量未设时这条为 0＝正常机零变化）', file: 'css/entry-quiz.css', needle: '.splash.eqz-active > .eqz-page { padding-top:var(--mochi-safe-top, env(safe-area-inset-top, 0px)); }' },
-  { name: '#1584d 问卷底栏避让手势条（删＝边缘到边形态 env 恒 0，上一步/下一题压在系统手势条下按不准）', file: 'css/entry-quiz.css', needle: 'padding: 10px 18px calc(16px + var(--mochi-safe-bottom, env(safe-area-inset-bottom, 0px)));' },
   { name: '#1550 入站问卷接入开屏收尾（clock.js finishEnter 里未放行则先跳问卷，锚在逻辑不在名字）', file: 'js/clock.js', needle: 'window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()' },
-  { name: '#1550 入站问卷页与开屏同层（显示期间收起 .splash-box/.splash-footcard，防问卷被开屏内容盖住或另起遮罩改图层）', file: 'css/entry-quiz.css', needle: '.splash.eqz-active .splash-footcard { display: none; }' },
   { name: '#1550 入站问卷放行根键进 migrateLegacy 排除清单（entry-quiz-pass 全局根键不被迁进 default 并删根键，否则每次刷新都要重答）', file: 'js/contacts.js', needle: "'entry-quiz-pass'," },
   { name: '#1551 公告第 8 章「电子网站会连上鬼」传闻改写（在线权威源 notice.json，回到「不存在这种事」旧口径＝作者改写被回退）', file: 'pwa/notice.json', needle: '"b": "本站没有灵异机制。' },
   { name: '#1551 公告第 8 章离线兜底同口径（template.html 静态块，两源必须同改）', file: 'template.html', needle: '<b>本站没有灵异机制。</b>' },
-  { name: '#1551 入站问卷新增第 8 章传闻准入题（entry-quiz.js 末位题，删掉＝泄露密码者不答该章也能进）', file: 'js/entry-quiz.js', needle: '关于「电子网站会连上鬼」的传闻' },
-  { name: '#1553 入站问卷第 8 章传闻题已删「传闻当事实」干扰项（作者直派，回流＝那条否认机制、说不能退出的选项又出现）', file: 'js/entry-quiz.js', needle: '本站确实存在灵异机制', absent: true },
-  { name: '#1553 入站问卷答错时写明（含多选「本题共 N 个正确答案」；#1556 起提示统一放提交后的结果页，删掉＝只报题号、用户不知道多选要选几项）', file: 'js/entry-quiz.js', needle: '个正确答案' },
-  { name: '#1556 入站问卷答题页不显示对错＋结果页可再答一次（作者直派防本页试错；删掉＝提交后在题目上标对错、可改答案作弊）', file: 'js/entry-quiz.js', needle: '会清空全部已选、从头重答' },
-  { name: '#1556 入站问卷页头左上角返回开屏（删掉＝进了问卷只能硬答、无法退出）', file: 'js/entry-quiz.js', needle: '‹ 返回开屏</button>' },
-  { name: '#1556 入站问卷通过页明示「只需答一次，以后不再出现」（删掉＝作者要求的放行说明丢失）', file: 'js/entry-quiz.js', needle: '此答题只需答一次' },
-  { name: '#1571 问卷选项控件视觉隐藏改 CSS 自绘指示器（部分安卓内核把选中 radio 渲染成 value 数字；删掉＝原生控件回秤又冒数字）', file: 'css/entry-quiz.css', needle: '.eqz-opt::before {' },
-  { name: '#1571 问卷选项 label 带类型 class（自绘指示器靠 eqz-radio/eqz-check 区分圆点与勾；删掉＝自绘失效）', file: 'js/entry-quiz.js', needle: "eqz-check' : 'eqz-radio" },
-  { name: '#1571 问卷选项零表单控件（选项本体是纯 button，页面里没有 input 可被怪内核渲染成 value 数字/文本框；#1576 重锚＝label+input 全退役，改回表单控件＝数字与弹键盘复发）', file: 'js/entry-quiz.js', needle: '\'<button type="button" class="eqz-opt \' + (it.k === \'multi\' ? \'eqz-check\' : \'eqz-radio\') + \'" data-i="\'' },
-  { name: '#1571 问卷选中状态由 picks 管（单选覆盖 picks[i] = [j]；#1576 重锚＝判分/进度/重答不再读 :checked，删掉状态机＝答题失效）', file: 'js/entry-quiz.js', needle: 'picks[i] = [j];' },
-  { name: '#1572 问卷放行判定改版本比较（记录版本 ≥ 本页版本即放行；删掉＝SW 旧缓存页版本乒乓，答对过还反复弹问卷重答）', file: 'js/entry-quiz.js', needle: 'quizVerCmp(o.v, QUIZ_VER) >= 0' },
   { name: '#1573 更新提醒弹窗接口（pwa.js 检出旧缓存包时调起；删掉＝弹窗永远不出现，旧包用户不知道要刷新）', file: 'js/update-remind.js', needle: 'window.mochiUpdateRemindShow = function' },
   { name: '#1573 更新提醒弹窗文案（#1579 起随部署升版 2026.10.22；删掉＝弹窗没有说明内容）', file: 'js/update-remind.js', needle: '强制刷新更新至2026.10.23' },
   { name: '#1573 pwa.js 检出线上比本页新时调起更新提醒弹窗（删掉＝旧缓存页用户收不到刷新提醒；defer 就绪短重试为逻辑锚）', file: 'js/pwa.js', needle: 'const urShow = window.mochiUpdateRemindShow;' },
@@ -6635,11 +6606,6 @@ const FIX_SENTINELS = [
   { name: '#1539a 收口先清空再量（删＝#1537 把清空整行替换成量底边 ⇒ Chrome 收键盘后 489px 内联高停留 1s＝不能秒收＋输入栏一行消失；恢复清空为第一步、清完量渲染底边超视口才钉）', file: 'js/mobile-adapt.js', needle: "_aPhone.style.height = ''; // #1539：清空必须先做" },
   { name: '#1540a 开新会话即拆收口封锁窗（删＝关了马上再开时，钉高被上一轮 1.2s 墙拦住＝输入栏被键盘盖住一秒才弹上来＝用户实报「打开键盘时输入栏消失一秒」）', file: 'js/mobile-adapt.js', needle: '_aHoldSuppressUntil = 0; _aPhone.style.alignSelf' },
   // ==== 2026-10-27 #1586 作者再报「总有人手机每次进入都要重答」（#1585 之后仍有）====
-  { name: '#1586 须知层「迟到证据收层」不再被盖层那枚门封死（拆成 settled/opened 两枚门；改回共用一个 done＝库读数慢过 1.2s 兜底的机器，答过也照重答）', file: 'js/entry-rules.js', needle: 'if (settled || opened) return; opened = true; openOnce();' },
-  { name: '#1586 自检面板补 24 题问卷的放行记录读数（两条闸各自一门，报障时要能一眼分清是哪道闸重答）', file: 'js/entry-rules.js', needle: "'24题记录: '" },
-  { name: '#1586 24 题放行记录·cookie 通道（LS 写不进/被清的机器上唯一能同步命中的一路；删＝那些机型天天重答 24 题）', file: 'js/entry-quiz.js', needle: "const CK = 'mochi_q24';" },
-  { name: '#1586 24 题开卷前先异步问库（同步读空≠没答过：回填没进内存时记录只在 IDB；删＝又回到同步判空就开卷）', file: 'js/entry-quiz.js', needle: 'if (recOk(v)) passGate(); else showQuizNow();' },
-  { name: '#1586 24 题证据迟到时自动收卷（卷已开但库里证明答过、用户没动过选项＝当场摘卷继续进入；删＝只补记录不摘卷）', file: 'js/entry-quiz.js', needle: 'el.__untouched = function () {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

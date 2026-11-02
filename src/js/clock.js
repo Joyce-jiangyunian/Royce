@@ -520,14 +520,6 @@
   // 真正进入：隐藏开屏 + （数据未真就绪时）数据不全提示 / 字卡预加载——原 enter/forceEnter 的收尾逻辑收拢于此
   function finishEnter() {
     if (splash.classList.contains('hide')) return;
-    // #1550：开屏「点击进入」后先跳【入站问卷】整页（答对全部题目才放行，独立闸门、不用暗号跳过）。
-    //   模块缺失（老副本/未接入）时 try 兜住不阻断进入；通过后回调本函数继续收尾。
-    try {
-      if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
-        window.mochiEntryQuizGate(finishEnter);
-        return;
-      }
-    } catch (e) {}
     if (!seenToday) {
       try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
     }
