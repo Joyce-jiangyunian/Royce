@@ -7440,22 +7440,8 @@
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
 /*__SCRIPTS__*/</script>
-<!-- 2026-11-02 移除 Netlify Powered by 角标：SW 拦截 HUD 脚本（见 sw.js）+ 本段兜底（首访 SW 未激活时 HUD 仍会创建 iframe） -->
-<script>
-(function () {
-  try {
-    function kill() {
-      var els = document.querySelectorAll("iframe[id^=\"nl-\"], div[id^=\"nl-\"]");
-      for (var i = 0; i < els.length; i++) { try { els[i].remove(); } catch (e1) {} }
-    }
-    if (document.body) kill();
-    var tryN = 0;
-    var mo = new MutationObserver(function () { kill(); if (++tryN > 60) { try { mo.disconnect(); } catch (e2) {} } });
-    var root = document.body || document.documentElement;
-    if (root) mo.observe(root, { childList: true });
-  } catch (e3) {}
-})();
-</script>
+<!-- 2026-11-02 移除 Netlify 角标（轻量版）：SW 拦截 HUD 脚本为主，此处仅一次性兜底删除已存在的 nl-* 元素，无常驻监听 -->
+<script>(function(){try{function rm(){var e=document.querySelectorAll("iframe[id^=nl-],div[id^=nl-]");for(var i=0;i<e.length;i++){try{e[i].remove();}catch(x){}}}if(document.body)rm();setTimeout(rm,1500);setTimeout(rm,5000);}catch(e2){}})();</script>
 <!-- 紧急逃生口（2026-11-02 rev2）：app.js 下载完成前的黑盒期接管开屏 UI。
      原理：开屏进度/进入按钮逻辑都在 app.js（clock.js）里，包没下完＝开屏冻死「正在加载数据…」。
      本段零依赖：>6s 显示等待秒数；>25s 仍未开始执行则显示独立「仍要进入」按钮（自建元素，不碰 clock 管理的元素）。
