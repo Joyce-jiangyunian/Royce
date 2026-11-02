@@ -1789,15 +1789,6 @@
         </div>
         <div class="gs-sub" id="applock-sub">纯本地功能：可设数字密码 + 安全问题（忘记时重置）。提醒：网页数据存于本机，此锁防日常偷看，防不了懂技术的人读取本机数据。</div>
       </div>
-      <!-- 开屏问答门（可不设应用锁单独用；逻辑在 applock.js） -->
-      <div class="set-group glass">
-        <div class="set-row">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5V11c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5.5z"/><path d="M9.6 9.2a2.6 2.6 0 014.9 1.1c0 1.6-2.5 2-2.5 3.4"/><circle cx="12" cy="16.6" r=".4" fill="#111111"/></svg></div>
-          <div class="txt">开屏问答门<span class="sub">答对问题才放行，可不设数字密码</span></div>
-          <label class="toggle"><input type="checkbox" id="applock-qa-en"><span class="tk"></span></label>
-        </div>
-        <div class="gs-sub" id="applock-qa-sub">纯本地功能：<b>默认开启</b>——首次答对问答题后本机永久放行（不再重复询问），可单独使用；关掉即彻底不问。锁屏时也可输暗号直接永久跳过问答层。</div>
-      </div>
       <div class="set-group glass">
         <div class="gs-row"><span>后台保活</span><label class="toggle"><input type="checkbox" id="bg-keepalive"><span class="tk"></span></label></div>
         <!-- v3.44.x：保活音频可选——默认内置静音音频 / 用户上传自定义音频（逻辑在 bg-keep.js） -->
@@ -7446,44 +7437,37 @@
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
 /*__SCRIPTS__*/</script>
-<!-- 紧急逃生口（2026-11-02）：83 件功能包合成的 app.js 达 4.9MB，弱网首访下载可能极慢；
-     而开屏进度/进入按钮逻辑全在 app.js 里 → 包没下完＝开屏冻死在「正在加载数据…」，连
-     20s 保险丝也走不到（它在 clock.js 里）。本段内联脚本零依赖：实时显示功能包进度，
-     25 秒仍未就绪则接管「仍要进入」按钮，点即可隐藏开屏看到主页（数据后台继续回填）。 -->
+<!-- 紧急逃生口（2026-11-02 rev2）：app.js 下载完成前的黑盒期接管开屏 UI。
+     原理：开屏进度/进入按钮逻辑都在 app.js（clock.js）里，包没下完＝开屏冻死「正在加载数据…」。
+     本段零依赖：>6s 显示等待秒数；>25s 仍未开始执行则显示独立「仍要进入」按钮（自建元素，不碰 clock 管理的元素）。
+     一旦 clock.js 开始执行（__mochiLoaded 含 clock.js）立即 clearInterval 完全让位，杜绝与 clock 抢 UI 导致的闪烁。 -->
 <script>
 (function () {
   try {
-    var ld = document.getElementById("splash-loading");
     var splash = document.getElementById("splash");
-    var sub = document.getElementById("splash-loading-sub");
-    var fe = document.getElementById("splash-force-enter");
-    var t0 = Date.now(); var tookOver = false;
-    function forceIn() {
-      try {
-        if (splash) { splash.classList.add("hide"); splash.style.display = "none"; }
-        var any = null;
-        try { any = document.querySelector(".page:not([hidden])"); } catch (e2) {}
-        if (!any) { var ph = document.getElementById("page-phone"); if (ph) ph.hidden = false; }
-        if (ld) ld.textContent = "已进入，部分功能仍在后台加载…";
-        if (fe) fe.hidden = true;
-      } catch (e3) {}
-    }
+    if (!splash) return;
+    var ld = document.getElementById("splash-loading");
+    var t0 = Date.now();
+    var shownBtn = false;
+    var btn = document.createElement("div");
+    btn.textContent = "仍要进入";
+    btn.style.cssText = "margin:10px auto 0;max-width:260px;padding:11px 0;border-radius:12px;background:#2f6fed;color:#fff;font-size:14px;font-weight:700;text-align:center;cursor:pointer;display:none;border:none;width:68%;";
+    btn.addEventListener("click", function () {
+      try { splash.classList.add("hide"); splash.style.display = "none"; } catch (e2) {}
+      try { var ph = document.getElementById("page-phone"); if (ph && ph.hidden) ph.hidden = false; } catch (e3) {}
+    });
+    try { if (ld && ld.parentNode) ld.parentNode.insertBefore(btn, ld.nextSibling); } catch (e4) {}
     var iv = setInterval(function () {
       try {
-        if (!splash || splash.classList.contains("hide") || window.__mochiDataReady) { clearInterval(iv); return; }
-        var el = Date.now() - t0;
-        var n = (window.__mochiLoaded || []).length;
-        var exp = (window.__mochiJsFiles || []).length || 85;
-        if (el > 6000 && ld) {
-          ld.textContent = "正在下载功能包（首访约 1.7MB）… " + n + "/" + exp;
-          if (sub) sub.hidden = false;
+        if (splash.classList.contains("hide")) { clearInterval(iv); btn.style.display = "none"; return; }
+        var got = window.__mochiLoaded || [];
+        if (got.indexOf("clock.js") >= 0) { clearInterval(iv); btn.style.display = "none"; return; }
+        var el = Math.round((Date.now() - t0) / 1000);
+        if (el > 6 && ld) {
+          ld.textContent = got.length ? ("正在加载功能 " + got.length + "/85…") : ("正在下载功能包，已等待 " + el + " 秒…");
         }
-        if (el > 25000 && !tookOver) {
-          tookOver = true;
-          if (ld) ld.textContent = "加载较慢，可点下方按钮直接进入，后台会继续加载";
-          if (fe) { fe.hidden = false; fe.textContent = "仍要进入"; fe.onclick = forceIn; }
-        }
-      } catch (e4) {}
+        if (el > 25 && !shownBtn) { shownBtn = true; btn.style.display = "block"; }
+      } catch (e5) {}
     }, 1000);
   } catch (e) {}
 })();

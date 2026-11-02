@@ -993,7 +993,6 @@ const FIX_SENTINELS = [
   { name: '应用锁/开屏问答门根键进 migrateLegacy 排除清单（applock-* 全局根键不被迁进 default 并删根键，否则锁设置每次刷新被搬走=锁失效）', file: 'js/contacts.js', needle: "'applock-qa-en', 'applock-qalist', 'applock-qaskip'," },
   { name: '应用锁设置页开关行（template.html #applock-en，防并行会话把设置入口改丢）', file: 'template.html', needle: 'id="applock-en"' },
   { name: '开屏问答门（applock.js 问答题门禁，防并行会话删除——隐私门即失效）', file: 'js/applock.js', needle: 'applock-qaskip' },
-  { name: '开屏问答门设置行（template.html #applock-qa-en，防并行会话把入口改丢）', file: 'template.html', needle: 'id="applock-qa-en"' },
   { name: '#1578 入站须知放行根键进 migrateLegacy 排除清单（rules-notice-pass 全局根键不被迁进 default 并删根键，否则每次刷新都要重答）', file: 'js/contacts.js', needle: "'rules-notice-pass'," },
   { name: '#1579 公告新增「14、10.22 更新」章（在线权威源 notice.json，两源必须同改）', file: 'pwa/notice.json', needle: '"h": "14、10.22 更新"' },
   { name: '#1579 公告「10.22 更新」章离线兜底同口径（template.html 静态块，只改在线源＝断网用户看不到）', file: 'template.html', needle: '<p class="splash-sec">14、10.22 更新</p>' },

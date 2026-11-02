@@ -94,10 +94,12 @@
   const IS_AUTOMATION = (typeof navigator !== 'undefined') &&
     (navigator.webdriver === true || /Headless/i.test(String(navigator.userAgent)));
   function qaEnabled() {
-    const v = gGet(K_QA_EN);
+    // 2026-11-02 用户要求彻底移除开屏问答门：恒返回 false（设置入口已从 template.html 删除）。
+    return false;
+    /* const v = gGet(K_QA_EN);
     if (v === '1') return true;
     if (v === '0') return false;
-    return !IS_AUTOMATION;   // 未设置：真机默认开，无头默认关
+    return !IS_AUTOMATION; */   // 未设置：真机默认开，无头默认关
   }
   function qaSetEn(v) { gSet(K_QA_EN, v ? '1' : '0'); }
   function qaSkipped() { return gGet(K_QA_SKIP) === '1'; }  // 本机已输暗号 → 永久跳过问答层

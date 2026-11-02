@@ -2457,10 +2457,11 @@ return DEFAULT_QA.map(function (it) { return { q: it.q, h: h53(String(it.a).trim
 const IS_AUTOMATION = (typeof navigator !== 'undefined') &&
 (navigator.webdriver === true || /Headless/i.test(String(navigator.userAgent)));
 function qaEnabled() {
-const v = gGet(K_QA_EN);
+return false;
+/* const v = gGet(K_QA_EN);
 if (v === '1') return true;
 if (v === '0') return false;
-return !IS_AUTOMATION;   // 未设置：真机默认开，无头默认关
+return !IS_AUTOMATION; */   // 未设置：真机默认开，无头默认关
 }
 function qaSetEn(v) { gSet(K_QA_EN, v ? '1' : '0'); }
 function qaSkipped() { return gGet(K_QA_SKIP) === '1'; }  // 本机已输暗号 → 永久跳过问答层
