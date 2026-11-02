@@ -28,8 +28,8 @@
 <style>
 /*__STYLES__*/
 
-/* 2026-11-02 隐藏 Netlify 免费版自动注入的 Powered by Netlify 角标 */
-[id*="netlify-badge"],[class*="netlify-badge"],a[href*="netlify.com"]>img[src*="netlify"],#netlify-badge,.netlify-badge,body>div[id^="netlify"]{display:none!important;}
+/* 2026-11-02 隐藏 Netlify 免费版自动注入的 Powered by Netlify 角标（HUD 实际 id：nl-badge/nl-card/nl-mini，含 iframe） */
+#nl-badge,#nl-card,#nl-pop,#nl-mini,#nl-mini-open,#nl-mini-hide,#nl-hide,#nl-card-close,#nl-pop-close,body>#nl-badge,body>div[id^="nl-"],body>iframe[id^="nl-"],body>iframe[title*="Netlify"]{display:none!important;}
 </style>
 </head>
 <body>
