@@ -22775,7 +22775,49 @@ else window.addEventListener('load', boot);
 if (window.__mochiLoaded) window.__mochiLoaded.push("pwa.js");
 } catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("pwa.js"); try { console.error("[JS] pwa.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[pwa.js] " + String(__e && __e.message || __e)); } })();
 window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} };(function () { function selfContained() { try { return location.protocol === "file:" || !document.querySelector("script[src]"); } catch (e0) { return false; } } function bar() {  if (selfContained()) return;  if (document.getElementById("boot-retry-bar")) return;  var off = 0; try { off = sessionStorage.getItem("mochi-boot-bar-off") === "1" ? 1 : 0; } catch (e6) {}  if (off) return;  var b = document.createElement("div");  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";  b.style.flexWrap = "wrap"; b.style.rowGap = "6px";  b.innerHTML = "<span class=\"vub-txt\">网络不佳·部分功能没加载完</span><b class=\"vub-act\">点此重试</b><b class=\"vub-act\" id=\"boot-retry-off\">知道了</b>";  b.addEventListener("click", function () { window.__mochiBootRetry(); });  var x = b.querySelector("#boot-retry-off");  if (x) x.addEventListener("click", function (ev) { ev.stopPropagation(); try { sessionStorage.setItem("mochi-boot-bar-off", "1"); } catch (e7) {} if (b.parentNode) b.parentNode.removeChild(b); });  (document.body || document.documentElement).appendChild(b); } function missing() { var e = window.__mochiJsFiles || [], g = window.__mochiLoaded || []; return Math.max(0, e.length - g.length - (window.__mochiErrLoaded || []).length); } function heal() {  try {   if (window.__mochiDataReady && missing() === 0) return;   if (selfContained()) return;   if (!navigator.onLine || missing() === 0) return;   var now = Date.now(), last = 0;   try { last = Number(sessionStorage.getItem("mochi-boot-heal")) || 0; } catch (e2) {}   if (now - last < 7200000) return;   try { sessionStorage.setItem("mochi-boot-heal", String(now)); } catch (e3) {}   setTimeout(function () { try { location.replace(location.href); } catch (e4) {} }, 400);  } catch (e) {} } function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0; var b = ok && document.getElementById("boot-retry-bar"); if (b && b.parentNode) b.parentNode.removeChild(b); return ok; } function check(auto) { var ok = sweep(); if (!ok) bar(); if (auto && typeof heal === "function") heal(); } try { document.addEventListener("mochi-restore-done", function () { setTimeout(sweep, 50); }); } catch (e5) {} if (document.readyState === "complete") { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); } else window.addEventListener("load", function () { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); });})();</script>
-<script defer src="https://cdn.jsdelivr.net/gh/Joyce-jiangyunian/Royce@main/js/app.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('app.js')"></script>
+<!-- 紧急逃生口（2026-11-02）：83 件功能包合成的 app.js 达 4.9MB，弱网首访下载可能极慢；
+     而开屏进度/进入按钮逻辑全在 app.js 里 → 包没下完＝开屏冻死在「正在加载数据…」，连
+     20s 保险丝也走不到（它在 clock.js 里）。本段内联脚本零依赖：实时显示功能包进度，
+     25 秒仍未就绪则接管「仍要进入」按钮，点即可隐藏开屏看到主页（数据后台继续回填）。 -->
+<script>
+(function () {
+  try {
+    var ld = document.getElementById("splash-loading");
+    var splash = document.getElementById("splash");
+    var sub = document.getElementById("splash-loading-sub");
+    var fe = document.getElementById("splash-force-enter");
+    var t0 = Date.now(); var tookOver = false;
+    function forceIn() {
+      try {
+        if (splash) { splash.classList.add("hide"); splash.style.display = "none"; }
+        var any = null;
+        try { any = document.querySelector(".page:not([hidden])"); } catch (e2) {}
+        if (!any) { var ph = document.getElementById("page-phone"); if (ph) ph.hidden = false; }
+        if (ld) ld.textContent = "已进入，部分功能仍在后台加载…";
+        if (fe) fe.hidden = true;
+      } catch (e3) {}
+    }
+    var iv = setInterval(function () {
+      try {
+        if (!splash || splash.classList.contains("hide") || window.__mochiDataReady) { clearInterval(iv); return; }
+        var el = Date.now() - t0;
+        var n = (window.__mochiLoaded || []).length;
+        var exp = (window.__mochiJsFiles || []).length || 85;
+        if (el > 6000 && ld) {
+          ld.textContent = "正在下载功能包（首访约 1.7MB）… " + n + "/" + exp;
+          if (sub) sub.hidden = false;
+        }
+        if (el > 25000 && !tookOver) {
+          tookOver = true;
+          if (ld) ld.textContent = "加载较慢，可点下方按钮直接进入，后台会继续加载";
+          if (fe) { fe.hidden = false; fe.textContent = "仍要进入"; fe.onclick = forceIn; }
+        }
+      } catch (e4) {}
+    }, 1000);
+  } catch (e) {}
+})();
+</script>
+<script defer src="js/app.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('app.js')"></script>
 <!-- PERF-PLAN 阶段 1：上一行是 ext 外置脚本 defer 注入锚，构建时被整体替换为 35 个外置 js 标签；本行说明必须连同注释符号一起整体留在注释内，勿删。#797 教训：说明若写在注释结尾之外＝变正文裸文本（全页面右侧白色乱码条），其中的标签样本会被浏览器当真开标签，吞掉其后全部尾部 DOM -->
 
   <!-- PWA 安装到桌面按钮（Chrome/Edge 触发 beforeinstallprompt 时显示） -->

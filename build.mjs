@@ -312,7 +312,7 @@ html = html.replace('/*__SCRIPTS__*/', () =>
 const BUNDLE_FILE = 'app.js';
 // PERF-CDN（2026-11-02）：app.js 4.9MB 改走 jsDelivr CDN（国内 8~10 倍速）；设 null 则回退同源
 // NOTE：@main 分支 jsdelivr 缓存最长 12h——紧急回退时部署后等缓存刷新，或改用锁 commit 的 URL
-const BUNDLE_CDN = 'https://cdn.jsdelivr.net/gh/Joyce-jiangyunian/Royce@main/js/app.js';
+const BUNDLE_CDN = null; // 2026-11-02 实测 jsDelivr 国内移动网络常 DNS 污染挂起（不触发 onerror），app.js 改回同源
 html = html.replace('<!-- __SCRIPTS_EXT__ -->', () =>
   BUNDLE_CDN ? '<script defer src="' + BUNDLE_CDN + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + BUNDLE_FILE + '\')"></script>' : '<script defer src="js/' + BUNDLE_FILE + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + BUNDLE_FILE + '\')"></script>'
 );

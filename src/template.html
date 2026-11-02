@@ -7448,6 +7448,48 @@
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
 /*__SCRIPTS__*/</script>
+<!-- 紧急逃生口（2026-11-02）：83 件功能包合成的 app.js 达 4.9MB，弱网首访下载可能极慢；
+     而开屏进度/进入按钮逻辑全在 app.js 里 → 包没下完＝开屏冻死在「正在加载数据…」，连
+     20s 保险丝也走不到（它在 clock.js 里）。本段内联脚本零依赖：实时显示功能包进度，
+     25 秒仍未就绪则接管「仍要进入」按钮，点即可隐藏开屏看到主页（数据后台继续回填）。 -->
+<script>
+(function () {
+  try {
+    var ld = document.getElementById("splash-loading");
+    var splash = document.getElementById("splash");
+    var sub = document.getElementById("splash-loading-sub");
+    var fe = document.getElementById("splash-force-enter");
+    var t0 = Date.now(); var tookOver = false;
+    function forceIn() {
+      try {
+        if (splash) { splash.classList.add("hide"); splash.style.display = "none"; }
+        var any = null;
+        try { any = document.querySelector(".page:not([hidden])"); } catch (e2) {}
+        if (!any) { var ph = document.getElementById("page-phone"); if (ph) ph.hidden = false; }
+        if (ld) ld.textContent = "已进入，部分功能仍在后台加载…";
+        if (fe) fe.hidden = true;
+      } catch (e3) {}
+    }
+    var iv = setInterval(function () {
+      try {
+        if (!splash || splash.classList.contains("hide") || window.__mochiDataReady) { clearInterval(iv); return; }
+        var el = Date.now() - t0;
+        var n = (window.__mochiLoaded || []).length;
+        var exp = (window.__mochiJsFiles || []).length || 85;
+        if (el > 6000 && ld) {
+          ld.textContent = "正在下载功能包（首访约 1.7MB）… " + n + "/" + exp;
+          if (sub) sub.hidden = false;
+        }
+        if (el > 25000 && !tookOver) {
+          tookOver = true;
+          if (ld) ld.textContent = "加载较慢，可点下方按钮直接进入，后台会继续加载";
+          if (fe) { fe.hidden = false; fe.textContent = "仍要进入"; fe.onclick = forceIn; }
+        }
+      } catch (e4) {}
+    }, 1000);
+  } catch (e) {}
+})();
+</script>
 <!-- __SCRIPTS_EXT__ -->
 <!-- PERF-PLAN 阶段 1：上一行是 ext 外置脚本 defer 注入锚，构建时被整体替换为 35 个外置 js 标签；本行说明必须连同注释符号一起整体留在注释内，勿删。#797 教训：说明若写在注释结尾之外＝变正文裸文本（全页面右侧白色乱码条），其中的标签样本会被浏览器当真开标签，吞掉其后全部尾部 DOM -->
 

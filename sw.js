@@ -8,7 +8,7 @@
 // 失败），SW 最迟约 10 秒内必然激活，安装/加载都不再无限挂起。
 const CACHE = 'mochi-mvyy89pw';
 const BUILD_INFO = '部署于 2026-11-02 15:40';
-const PRECACHE = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png","./icon-180.png","./js/app.js","https://cdn.jsdelivr.net/gh/Joyce-jiangyunian/Royce@main/js/app.js"];
+const PRECACHE = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png","./icon-180.png","./js/app.js"];
 // v3.10.x：网络优先超时从 8000 → 3500ms。GitHub Pages 国内访问经常 >8s，
 // 原 8s 超时导致手机端 fetch 频繁超时 → 回退 SW 缓存旧 index.html → 用户永远
 // 看不到新版。缩短到 3.5s：慢网络下页面秒开（回退缓存），配合页面版本检测 +
